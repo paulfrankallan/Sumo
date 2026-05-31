@@ -3,9 +3,15 @@ package app.theme
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.Color
 
-val colorHomeDarkGreen = Color(0xFF1C211E)
-val colorHomeLightGreen = Color(0xFF727F44)
-val appRed = Color(0xFF8B0000)
+val colorHomeDarkGreen = sumoBackground
+val colorHomeLightGreen = sumoRicePaper
+val appRed = sumoVermillion
+val appGold = sumoStrawGold
+val appClay = sumoClay
+val appSand = sumoSand
+val appWood = sumoDarkWood
+val playerOneColor = sumoVermillion
+val playerTwoColor = sumoIndigo
 
 @Stable
 data class AppColors(
@@ -15,14 +21,14 @@ data class AppColors(
 )
 
 val LightAppColors = AppColors(
-    primary = colorHomeDarkGreen,
-    secondary = colorHomeLightGreen,
+    primary = appRed,
+    secondary = appGold,
     appRed = appRed
 )
 
 val DarkAppColors = AppColors(
-    primary = colorHomeLightGreen,
-    secondary = colorHomeDarkGreen,
+    primary = appRed,
+    secondary = appGold,
     appRed = appRed
 )
 
@@ -51,9 +57,9 @@ val DarkAppColors = AppColors(
 // #8B0000 - Red
 
 enum class AppColor(val color: Color) {
-    LIGHT_BROWN(Color(0xFF1498D7)),
-    BLOOD_RED(Color(0xFF8B0000)),
-    GREEN(Color(0xFF2F4F4F)),
-    DARK_GREEN(Color(0xFF2E8B57)),
-    LIGHT_GREEN(Color(0xFF4CAF50)),
+    LIGHT_BROWN(appClay),
+    BLOOD_RED(appRed),
+    GREEN(sumoPine),
+    DARK_GREEN(appWood),
+    LIGHT_GREEN(appGold),
 }

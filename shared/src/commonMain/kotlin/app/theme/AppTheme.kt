@@ -19,13 +19,16 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = md_theme_dark_onPrimary,
     primaryContainer = md_theme_dark_primaryContainer,
     onPrimaryContainer = md_theme_dark_onPrimaryContainer,
+    secondary = md_theme_dark_secondary,
+    onSecondary = md_theme_dark_onSecondary,
+    tertiary = md_theme_dark_tertiary,
+    onTertiary = md_theme_dark_onTertiary,
     background = md_theme_dark_background,
     onBackground = md_theme_dark_onBackground,
     surface = md_theme_dark_surface,
     onSurface = md_theme_dark_onSurface,
     surfaceVariant = md_theme_dark_surfaceVariant,
-    onSurfaceVariant = md_theme_dark_onSurfaceVariant,
-    secondary = md_theme_dark_secondary
+    onSurfaceVariant = md_theme_dark_onSurfaceVariant
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -33,13 +36,16 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = md_theme_light_onPrimary,
     primaryContainer = md_theme_light_primaryContainer,
     onPrimaryContainer = md_theme_light_onPrimaryContainer,
+    secondary = md_theme_light_secondary,
+    onSecondary = md_theme_light_onSecondary,
+    tertiary = md_theme_light_tertiary,
+    onTertiary = md_theme_light_onTertiary,
     background = md_theme_light_background,
     onBackground = md_theme_light_onBackground,
     surface = md_theme_light_surface,
     onSurface = md_theme_light_onSurface,
     surfaceVariant = md_theme_light_surfaceVariant,
-    onSurfaceVariant = md_theme_light_onSurfaceVariant,
-    secondary = md_theme_light_secondary
+    onSurfaceVariant = md_theme_light_onSurfaceVariant
 )
 
 @Composable
@@ -51,7 +57,7 @@ fun AppTheme(
     val colors = if (darkTheme) {
         DarkColorScheme
     } else {
-        DarkColorScheme
+        LightColorScheme
     }
     val typography = Typography(
         bodyMedium = TextStyle(

@@ -1,0 +1,12 @@
+
+
+
+
+
+TODO
+
+* App icon
+* Game graphics
+* App theme
+* Create AdMob app
+* Ad IDs

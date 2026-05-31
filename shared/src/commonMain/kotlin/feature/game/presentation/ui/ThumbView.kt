@@ -22,6 +22,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import app.theme.appClay
+import app.theme.appRed
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
@@ -34,7 +36,7 @@ import kotlin.math.sqrt
 @Composable
 fun ThumbView(
     spotDiameter: Dp,
-    spotBackgroundColor: Color = Color(0xFF556B2F),
+    spotBackgroundColor: Color = appClay,
     spotBackgroundImage: DrawableResource = Res.drawable.b2,
     spotForegroundColor: Color?,
     spotForegroundImage: DrawableResource = Res.drawable.fingerprint,
@@ -144,7 +146,7 @@ fun ThumbView(
                         colorFilter = spotForegroundColor?.let {
                             ColorFilter.tint(
                                 color = if (isOutOfBounds) {
-                                    Color(0xFF8B0000)
+                                    appRed
                                 } else {
                                     spotForegroundColor
                                 }

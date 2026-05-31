@@ -38,6 +38,10 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
+            implementation(project.dependencies.platform(libs.firebase.bom))
+            implementation(libs.firebase.analytics)
+            implementation(libs.firebase.config)
+            implementation(libs.firebase.crashlytics)
             implementation(libs.koin.android)
             implementation(libs.compose.uiToolingPreview)
         }

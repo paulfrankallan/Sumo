@@ -11,6 +11,10 @@ import app.LocalScreen
 import app.presentation.segmentedbutton.SegmentedButton
 import app.presentation.segmentedbutton.SegmentedButtonDefaults
 import app.presentation.segmentedbutton.SegmentedButtonItem
+import app.theme.appGold
+import app.theme.appRed
+import app.theme.colorHomeDarkGreen
+import app.theme.colorHomeLightGreen
 import feature.common.model.GameType
 import feature.common.presentation.Intent
 import org.jetbrains.compose.resources.Font
@@ -72,11 +76,11 @@ fun GameTypeSelectionButton(
             ),
         ),
         color = SegmentedButtonDefaults.segmentedButtonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            selectedContainerColor = MaterialTheme.colorScheme.onPrimary,
-            outlineColor = MaterialTheme.colorScheme.onPrimary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            selectedContentColor = MaterialTheme.colorScheme.primary,
+            containerColor = appGold,
+            selectedContainerColor = appRed,
+            outlineColor = appGold,
+            contentColor = colorHomeDarkGreen,
+            selectedContentColor = colorHomeLightGreen,
         ),
         modifier = modifier
     )

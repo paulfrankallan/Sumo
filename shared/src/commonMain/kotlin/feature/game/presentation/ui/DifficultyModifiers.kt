@@ -16,6 +16,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.theme.appClay
+import app.theme.appGold
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
@@ -25,8 +27,8 @@ import sumo.shared.generated.resources.fingerprint
 @Composable
 fun DifficultyModifiers(
     spotDiameter: Dp = 90.dp,
-    spotBackgroundColor: Color = Color(0xFF556B2F),
-    spotForegroundColor: Color = Color(0xFF654321),
+    spotBackgroundColor: Color = appClay,
+    spotForegroundColor: Color = appGold,
     spotBackgroundImage: DrawableResource = Res.drawable.b2,
     onPressed: (Boolean) -> Unit = {},
 ) {

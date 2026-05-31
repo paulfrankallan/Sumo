@@ -75,7 +75,6 @@ class GameViewModel(
                 }
             }
         }
-        throw RuntimeException("Test Crash")
     }
 
     override fun initialViewState(): GameState {

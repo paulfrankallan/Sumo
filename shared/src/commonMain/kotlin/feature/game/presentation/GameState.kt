@@ -10,6 +10,8 @@ import feature.game.domain.model.GameOverResult
 import feature.game.domain.model.StartCountdownViewState
 import feature.game.presentation.model.Player
 import org.jetbrains.compose.resources.DrawableResource
+import app.theme.playerOneColor
+import app.theme.playerTwoColor
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.fingerprint
 
@@ -33,11 +35,11 @@ data class GameState(
 data class UI(
     val topActionPanel: ActionPanelState = ActionPanelState(),
     val topThumbView: ThumbViewState = ThumbViewState(
-        foregroundColor = Color(0xFF1F1F1F),
+        foregroundColor = playerOneColor,
     ),
     val bottomActionPanel: ActionPanelState = ActionPanelState(),
     val bottomThumbView: ThumbViewState = ThumbViewState(
-        foregroundColor = Color(0xFF654321),
+        foregroundColor = playerTwoColor,
     ),
 )
 

@@ -13,13 +13,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalDensity
 import app.LocalScreen
+import app.theme.appClay
+import app.theme.appGold
+import app.theme.appRed
+import app.theme.appSand
 import feature.common.presentation.Intent
 import feature.game.domain.logic.ArenaPhysics.calculatePushVector
 import feature.game.domain.logic.ArenaPhysics.doThumbSpotsOverlap
@@ -29,10 +30,8 @@ import feature.game.presentation.GameState
 import feature.game.presentation.PlayState
 import feature.game.presentation.model.Player
 import kotlinx.coroutines.flow.distinctUntilChanged
-import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.b26
-import sumo.shared.generated.resources.barbed_wire
 
 @Composable
 fun Arena(
@@ -67,50 +66,38 @@ fun Arena(
         modifier = modifier
             .fillMaxSize()
     ) {
-        val barbedWirePainter = painterResource(resource = Res.drawable.barbed_wire)
-
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = size.width
             val canvasHeight = size.height
             circleCenter.value = Offset(canvasWidth / 2, canvasHeight / 2)
             circleDiameter.value = canvasWidth * 0.88f // 88% width of canvas.
             circleRadius.value = circleDiameter.value / 2
-            val imageSize =
-                Size(
-                    width = circleDiameter.value + 100,
-                    height = circleDiameter.value + 100
-                )
-            drawCircle( // Arena perimeter
-                color = if (isOutOfBounds.value) {
-//                    Color(0xFF8B0000) // For debugging
-                    Color.Transparent
-                } else {
-//                    Color(0xFF8B0000) // For debugging
-                    Color.Transparent
-                },
+            val boundaryColor = if (isOutOfBounds.value || state.isGameOver) appRed else appGold
+            val innerSandRadius = circleRadius.value * 0.79f
+            val boundaryRadius = circleRadius.value * 0.89f
+            val boundaryStroke = circleRadius.value * 0.085f
+
+            drawCircle(
+                color = appClay,
                 center = circleCenter.value,
                 radius = circleRadius.value,
-                style = Stroke(width = circleStroke)
             )
-            with(barbedWirePainter) {
-                withTransform({
-                    // Calculate the top-left position based on the circle center and the image size
-                    val topLeftX = circleCenter.value.x - (imageSize.width / 2)
-                    val topLeftY = circleCenter.value.y - (imageSize.height / 2)
-                    translate(topLeftX, topLeftY)
-                }) {
-                    draw(
-                        size = imageSize,
-                        colorFilter = ColorFilter.tint(
-                            if (isOutOfBounds.value || state.isGameOver) {
-                                Color(0xFF8B0000)
-                            } else {
-                                Color(0xFF8A8A8A)
-                            }
-                        ),
-                    )
-                }
-            }
+            drawCircle(
+                color = appSand,
+                center = circleCenter.value,
+                radius = innerSandRadius,
+            )
+            drawCircle(
+                color = boundaryColor,
+                center = circleCenter.value,
+                radius = boundaryRadius,
+                style = Stroke(width = boundaryStroke)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.15f),
+                center = circleCenter.value,
+                radius = circleRadius.value * 0.08f
+            )
         }
         // Top ThumbView
         ThumbView(
