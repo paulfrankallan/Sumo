@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "2854696065",
+    "project_id": "sumo-7a318",
+    "storage_bucket": "sumo-7a318.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2854696065:android:d697530ff8aa2246620980",
+        "android_client_info": {
+          "package_name": "com.corbstech.sumo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAveDAKi7c7hKorRZjnow3Ej4BiVWX09WE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

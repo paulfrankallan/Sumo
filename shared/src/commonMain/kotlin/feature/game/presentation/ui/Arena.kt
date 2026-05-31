@@ -1,0 +1,336 @@
+package feature.game.presentation.ui
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.platform.LocalDensity
+import app.LocalScreen
+import feature.common.presentation.Intent
+import feature.game.domain.logic.ArenaPhysics.calculatePushVector
+import feature.game.domain.logic.ArenaPhysics.doThumbSpotsOverlap
+import feature.game.domain.logic.ArenaPhysics.isOutOfBounds
+import feature.game.presentation.GameIntent
+import feature.game.presentation.GameState
+import feature.game.presentation.PlayState
+import feature.game.presentation.model.Player
+import kotlinx.coroutines.flow.distinctUntilChanged
+import org.jetbrains.compose.resources.painterResource
+import sumo.shared.generated.resources.Res
+import sumo.shared.generated.resources.b26
+import sumo.shared.generated.resources.barbed_wire
+
+@Composable
+fun Arena(
+    state: GameState,
+    modifier: Modifier = Modifier,
+    onDamageDetected: (Player) -> Unit,
+    onPressed: (Boolean, Player) -> Unit,
+    onReleased: (player: Player) -> Unit,
+    onIntent: (Intent) -> Unit,
+    resetThumbPositions: Boolean
+) {
+    val density = LocalDensity.current
+    val circleStroke = remember { 5f }
+    val circleCenter = remember { mutableStateOf(Offset.Zero) }
+    val circleDiameter = remember { mutableStateOf(0f) }
+    val circleRadius = remember { mutableStateOf(0f) }
+    val topThumbPosition = remember { mutableStateOf(Offset.Zero) }
+    val bottomThumbPosition = remember { mutableStateOf(Offset.Zero) }
+    val screenWidth = LocalScreen.current.width
+    val spotDiameter = remember { screenWidth * 0.20f }
+    val spotDiameterPx = with(density) { spotDiameter.toPx() }
+    val spotRadiusPx = spotDiameterPx / 2
+    val isTopThumbOutOfBounds = remember { mutableStateOf(false) }
+    val isBottomThumbOutOfBounds = remember { mutableStateOf(false) }
+    val isOutOfBounds = derivedStateOf {
+        isTopThumbOutOfBounds.value || isBottomThumbOutOfBounds.value
+    }
+    val currentState = rememberUpdatedState(state)
+    val currentKey = remember { mutableStateOf<String?>(null) }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+    ) {
+        val barbedWirePainter = painterResource(resource = Res.drawable.barbed_wire)
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+            circleCenter.value = Offset(canvasWidth / 2, canvasHeight / 2)
+            circleDiameter.value = canvasWidth * 0.88f // 88% width of canvas.
+            circleRadius.value = circleDiameter.value / 2
+            val imageSize =
+                Size(
+                    width = circleDiameter.value + 100,
+                    height = circleDiameter.value + 100
+                )
+            drawCircle( // Arena perimeter
+                color = if (isOutOfBounds.value) {
+//                    Color(0xFF8B0000) // For debugging
+                    Color.Transparent
+                } else {
+//                    Color(0xFF8B0000) // For debugging
+                    Color.Transparent
+                },
+                center = circleCenter.value,
+                radius = circleRadius.value,
+                style = Stroke(width = circleStroke)
+            )
+            with(barbedWirePainter) {
+                withTransform({
+                    // Calculate the top-left position based on the circle center and the image size
+                    val topLeftX = circleCenter.value.x - (imageSize.width / 2)
+                    val topLeftY = circleCenter.value.y - (imageSize.height / 2)
+                    translate(topLeftX, topLeftY)
+                }) {
+                    draw(
+                        size = imageSize,
+                        colorFilter = ColorFilter.tint(
+                            if (isOutOfBounds.value || state.isGameOver) {
+                                Color(0xFF8B0000)
+                            } else {
+                                Color(0xFF8A8A8A)
+                            }
+                        ),
+                    )
+                }
+            }
+        }
+        // Top ThumbView
+        ThumbView(
+            thumbOffsetPosition = topThumbPosition.value,
+            isOutOfBounds = isTopThumbOutOfBounds.value,
+            updateThumbOffsetPosition = { dragAmount ->
+                if (currentState.value.playState != PlayState.IN_PROGRESS) {
+                    return@ThumbView
+                }
+                if (currentState.value.topPlayer.isLocked || currentState.value.topPlayer.isResetting) {
+                    return@ThumbView
+                }
+                val newSpotPosition = Offset(
+                    topThumbPosition.value.x + dragAmount.x,
+                    topThumbPosition.value.y + dragAmount.y
+                )
+                if (isDamageDetected(currentState.value, isTopThumbOutOfBounds.value)) {
+                    onDamageDetected(currentState.value.topPlayer)
+                    return@ThumbView
+                }
+                if (isDamageDetected(currentState.value, isBottomThumbOutOfBounds.value)) {
+                    onDamageDetected(currentState.value.bottomPlayer)
+                    return@ThumbView
+                }
+                if (doThumbSpotsOverlap(
+                        firstThumbCenter = newSpotPosition,
+                        secondThumbCenter = bottomThumbPosition.value,
+                        firstThumbRadiusPx = spotRadiusPx,
+                        secondThumbRadiusPx = spotRadiusPx
+                    )
+                ) {
+                    val pushVector = calculatePushVector(
+                        movingSpotCenter = newSpotPosition,
+                        stationarySpotCenter = bottomThumbPosition.value,
+                        dragAmount = dragAmount
+                    )
+                    bottomThumbPosition.value += pushVector
+                } else {
+                    topThumbPosition.value = newSpotPosition
+                }
+                updateOutOfBoundsStates(
+                    topThumbPosition = topThumbPosition.value,
+                    bottomThumbPosition = bottomThumbPosition.value,
+                    circleCenter = circleCenter.value,
+                    circleRadius = circleRadius.value,
+                    spotRadiusPx = spotRadiusPx,
+                    isTopThumbOutOfBounds = isTopThumbOutOfBounds,
+                    isBottomThumbOutOfBounds = isBottomThumbOutOfBounds
+                )
+            },
+            spotForegroundColor = state.ui.topThumbView.foregroundColor,
+            spotForegroundImage = state.ui.topThumbView.foregroundImage,
+            onPressed = {
+                onPressed(it, currentState.value.topPlayer)
+            },
+            onReleased = {
+                if (shouldSkipOnReleased(
+                        currentState.value,
+                        currentKey.value,
+                        currentState.value.topPlayer
+                    )
+                ) return@ThumbView
+                onReleased(currentState.value.topPlayer)
+            },
+            spotDiameter = spotDiameter,
+            doRotate = true
+        )
+        // Bottom ThumbView
+        ThumbView(
+            thumbOffsetPosition = bottomThumbPosition.value,
+            isOutOfBounds = isBottomThumbOutOfBounds.value,
+            spotBackgroundImage = Res.drawable.b26,
+            updateThumbOffsetPosition = { dragAmount ->
+                if (currentState.value.playState != PlayState.IN_PROGRESS) {
+                    return@ThumbView
+                }
+                if (currentState.value.bottomPlayer.isLocked || currentState.value.bottomPlayer.isResetting) {
+                    return@ThumbView
+                }
+                val newSpotPosition = Offset(
+                    bottomThumbPosition.value.x + dragAmount.x,
+                    bottomThumbPosition.value.y + dragAmount.y
+                )
+                if (isDamageDetected(currentState.value, isBottomThumbOutOfBounds.value)) {
+                    onDamageDetected(currentState.value.bottomPlayer)
+                    return@ThumbView
+                }
+                if (isDamageDetected(currentState.value, isTopThumbOutOfBounds.value)) {
+                    onDamageDetected(currentState.value.topPlayer)
+                    return@ThumbView
+                }
+                if (doThumbSpotsOverlap(
+                        firstThumbCenter = newSpotPosition,
+                        secondThumbCenter = topThumbPosition.value,
+                        firstThumbRadiusPx = spotRadiusPx,
+                        secondThumbRadiusPx = spotRadiusPx
+                    )
+                ) {
+                    val pushVector = calculatePushVector(
+                        movingSpotCenter = newSpotPosition,
+                        stationarySpotCenter = topThumbPosition.value,
+                        dragAmount = dragAmount
+                    )
+                    topThumbPosition.value += pushVector
+                } else {
+                    bottomThumbPosition.value = newSpotPosition
+                }
+                updateOutOfBoundsStates(
+                    topThumbPosition = topThumbPosition.value,
+                    bottomThumbPosition = bottomThumbPosition.value,
+                    circleCenter = circleCenter.value,
+                    circleRadius = circleRadius.value,
+                    spotRadiusPx = spotRadiusPx,
+                    isTopThumbOutOfBounds = isTopThumbOutOfBounds,
+                    isBottomThumbOutOfBounds = isBottomThumbOutOfBounds
+
+                )
+            },
+            spotForegroundColor = state.ui.bottomThumbView.foregroundColor,
+            spotForegroundImage = state.ui.bottomThumbView.foregroundImage,
+            onPressed = {
+                onPressed(it, currentState.value.bottomPlayer)
+            },
+            onReleased = {
+                if (shouldSkipOnReleased(
+                        currentState.value,
+                        currentKey.value,
+                        currentState.value.bottomPlayer
+                    )
+                ) return@ThumbView
+                onReleased(currentState.value.bottomPlayer)
+            },
+            spotDiameter = spotDiameter
+        )
+
+        GameOverView(state = currentState.value)
+    }
+
+    LaunchedEffect(currentState.value.resettingKey) {
+        if (currentState.value.resettingKey != currentKey.value) {
+            currentKey.value = currentState.value.resettingKey
+        }
+    }
+
+    LaunchedEffect(resetThumbPositions) {
+        isTopThumbOutOfBounds.value = false
+        topThumbPosition.value = Offset(
+            circleCenter.value.x - spotRadiusPx,
+            (circleCenter.value.y - spotRadiusPx) - spotDiameterPx
+        )
+        isBottomThumbOutOfBounds.value = false
+        bottomThumbPosition.value = Offset(
+            circleCenter.value.x - spotRadiusPx,
+            (circleCenter.value.y - spotRadiusPx) + spotDiameterPx
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { topThumbPosition.value }
+            .distinctUntilChanged()
+            .collect { newPosition ->
+                val topPosition = Offset(
+                    circleCenter.value.x - spotRadiusPx,
+                    (circleCenter.value.y - spotRadiusPx) - spotDiameterPx
+                )
+                if (newPosition == topPosition) {
+                    onIntent(GameIntent.ResetThumbsComplete)
+                }
+            }
+    }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { bottomThumbPosition.value }
+            .distinctUntilChanged()
+            .collect { newPosition ->
+                val bottomPosition = Offset(
+                    circleCenter.value.x - spotRadiusPx,
+                    (circleCenter.value.y - spotRadiusPx) + spotDiameterPx
+                )
+                if (newPosition == bottomPosition) {
+                    onIntent(GameIntent.ResetThumbsComplete)
+                }
+            }
+    }
+}
+
+private fun shouldSkipOnReleased(
+    state: GameState,
+    currentKey: String?,
+    player: Player
+): Boolean {
+    return state.resettingKey != currentKey || state.resettingKey.isNullOrEmpty() || player.isLocked
+}
+
+private fun isDamageDetected(
+    state: GameState,
+    isThumbOutOfBounds: Boolean
+): Boolean {
+    return isThumbOutOfBounds && state.gameOverResult == null
+}
+
+private fun updateOutOfBoundsStates(
+    topThumbPosition: Offset,
+    bottomThumbPosition: Offset,
+    circleCenter: Offset,
+    circleRadius: Float,
+    spotRadiusPx: Float,
+    isTopThumbOutOfBounds: MutableState<Boolean>,
+    isBottomThumbOutOfBounds: MutableState<Boolean>
+) {
+    isTopThumbOutOfBounds.value = isOutOfBounds(
+        spotPosition = topThumbPosition,
+        circleCenter = circleCenter,
+        circleRadius = circleRadius,
+        spotRadiusPx = spotRadiusPx
+    )
+    isBottomThumbOutOfBounds.value = isOutOfBounds(
+        spotPosition = bottomThumbPosition,
+        circleCenter = circleCenter,
+        circleRadius = circleRadius,
+        spotRadiusPx = spotRadiusPx
+    )
+}
