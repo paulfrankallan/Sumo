@@ -55,10 +55,10 @@ fun GameScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .paint(
-                painter = painterResource(Res.drawable.b32),
-                contentScale = ContentScale.FillBounds
-            ),
+//            .paint(
+//                painter = painterResource(Res.drawable.b32),
+//                contentScale = ContentScale.FillBounds
+//            ),
     ) {
         Column(
             verticalArrangement = Arrangement.Center,
