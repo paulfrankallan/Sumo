@@ -83,7 +83,9 @@ fun ThumbView(
                     onDragStart = { offset ->
                         isDragging.value = true
                         onPressed(true)
-                        touchOffset.value = offset - thumbOffsetPosition
+                        // offset is local pointer position inside the ThumbView's Canvas in newer Compose versions
+                        // store the local touch offset (not converted by thumb position)
+                        touchOffset.value = offset
                         hasReleased.value = false
                     },
                     onDragEnd = {
