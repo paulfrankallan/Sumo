@@ -19,12 +19,14 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import feature.game.presentation.ui.ActionPanel
-import feature.game.presentation.ui.Arena
+import feature.game.presentation.ui.Dohyo
 import feature.game.presentation.ui.IntroCountdownView
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.sand_dark
+import sumo.shared.generated.resources.sand_light
+import sumo.shared.generated.resources.sand_medium
 
 @Composable
 fun GameScreen(
@@ -56,7 +58,7 @@ fun GameScreen(
         modifier = Modifier
             .fillMaxSize()
             .paint(
-                painter = painterResource(Res.drawable.sand_dark),
+                painter = painterResource(Res.drawable.sand_medium),
                 contentScale = ContentScale.FillBounds
             ),
     ) {
@@ -74,7 +76,7 @@ fun GameScreen(
                 onIntent = viewModel::onIntent,
                 modifier = Modifier.rotate(180f)
             )
-            Arena(
+            Dohyo(
                 state = state,
                 modifier = Modifier
                     .fillMaxWidth()

@@ -30,7 +30,7 @@ import feature.game.presentation.model.Player
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.dohyo
+import sumo.shared.generated.resources.tawara
 import kotlin.math.PI
 import kotlin.math.atan2
 
@@ -87,7 +87,7 @@ fun Arena(
         modifier = modifier
             .fillMaxSize()
     ) {
-        val barbedWirePainter = painterResource(resource = Res.drawable.dohyo)
+        val tawaraBalesPainter = painterResource(resource = Res.drawable.tawara)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = size.width
             val canvasHeight = size.height
@@ -111,7 +111,7 @@ fun Arena(
                 radius = circleRadius.value,
                 style = Stroke(width = circleStroke)
             )
-            with(barbedWirePainter) {
+            with(tawaraBalesPainter) {
                 withTransform({
                     // Calculate the top-left position based on the circle center and the image size
                     val topLeftX = circleCenter.value.x - (imageSize.width / 2)

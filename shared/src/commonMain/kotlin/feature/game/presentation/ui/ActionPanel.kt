@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,10 +77,10 @@ fun GameButton(
                 onIntent(GameIntent.StartGame)
             },
             colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = appRed,
-                contentColor = colorHomeLightGreen
+                containerColor = Color.Transparent,
+                contentColor = Color.Transparent
             ),
-            border = BorderStroke(2.dp, appGold),
+            border = BorderStroke(2.dp, Color.Transparent),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier
                 .padding(16.dp)
