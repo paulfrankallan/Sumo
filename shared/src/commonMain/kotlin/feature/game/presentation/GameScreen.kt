@@ -25,6 +25,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.b32
+import sumo.shared.generated.resources.sand_dark
 
 @Composable
 fun GameScreen(
@@ -55,10 +56,10 @@ fun GameScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-//            .paint(
-//                painter = painterResource(Res.drawable.b32),
-//                contentScale = ContentScale.FillBounds
-//            ),
+            .paint(
+                painter = painterResource(Res.drawable.sand_dark),
+                contentScale = ContentScale.FillBounds
+            ),
     ) {
         Column(
             verticalArrangement = Arrangement.Center,

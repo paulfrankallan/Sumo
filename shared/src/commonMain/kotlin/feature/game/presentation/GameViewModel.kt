@@ -30,7 +30,8 @@ import org.jetbrains.compose.resources.getString
 import platform.RES_ID_MUSIC_3
 import platform.randomUUID
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.fingerprint
+import sumo.shared.generated.resources.rikishi_blue
+import sumo.shared.generated.resources.rikishi_red
 import sumo.shared.generated.resources.i_declare_a_thumb_war
 import sumo.shared.generated.resources.loser
 import sumo.shared.generated.resources.winner
@@ -221,7 +222,7 @@ class GameViewModel(
                 Res.drawable.winner
             }
         } else {
-            Res.drawable.fingerprint
+            if (player.position == Position.TOP) Res.drawable.rikishi_blue else Res.drawable.rikishi_red
         }
     }
 

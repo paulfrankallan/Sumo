@@ -28,7 +28,7 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.b2
-import sumo.shared.generated.resources.fingerprint
+import sumo.shared.generated.resources.rikishi_blue
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -39,7 +39,7 @@ fun ThumbView(
     spotBackgroundColor: Color = appClay,
     spotBackgroundImage: DrawableResource = Res.drawable.b2,
     spotForegroundColor: Color?,
-    spotForegroundImage: DrawableResource = Res.drawable.fingerprint,
+    spotForegroundImage: DrawableResource = Res.drawable.rikishi_blue,
     thumbOffsetPosition: Offset,
     isOutOfBounds: Boolean,
     updateThumbOffsetPosition: (Offset) -> Unit = {},

@@ -13,7 +13,8 @@ import org.jetbrains.compose.resources.DrawableResource
 import app.theme.playerOneColor
 import app.theme.playerTwoColor
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.fingerprint
+import sumo.shared.generated.resources.rikishi_blue
+import sumo.shared.generated.resources.rikishi_red
 
 data class GameState(
     val navigateTo: NavigationEvent? = null,
@@ -35,17 +36,19 @@ data class GameState(
 data class UI(
     val topActionPanel: ActionPanelState = ActionPanelState(),
     val topThumbView: ThumbViewState = ThumbViewState(
-        foregroundColor = playerOneColor,
+        foregroundColor = null,
+        foregroundImage = Res.drawable.rikishi_blue,
     ),
     val bottomActionPanel: ActionPanelState = ActionPanelState(),
     val bottomThumbView: ThumbViewState = ThumbViewState(
-        foregroundColor = playerTwoColor,
+        foregroundColor = null,
+        foregroundImage = Res.drawable.rikishi_red,
     ),
 )
 
 data class ThumbViewState(
     val foregroundColor: Color?,
-    val foregroundImage: DrawableResource = Res.drawable.fingerprint,
+    val foregroundImage: DrawableResource,
 )
 
 data class ActionPanelState(
