@@ -21,7 +21,6 @@ import app.theme.appGold
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.b2
 import sumo.shared.generated.resources.fingerprint
 
 @Composable
@@ -29,7 +28,7 @@ fun DifficultyModifiers(
     spotDiameter: Dp = 90.dp,
     spotBackgroundColor: Color = appClay,
     spotForegroundColor: Color = appGold,
-    spotBackgroundImage: DrawableResource = Res.drawable.b2,
+    spotBackgroundImage: DrawableResource = Res.drawable.fingerprint,
     onPressed: (Boolean) -> Unit = {},
 ) {
     val density = LocalDensity.current

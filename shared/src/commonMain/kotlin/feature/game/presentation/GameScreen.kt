@@ -24,7 +24,6 @@ import feature.game.presentation.ui.IntroCountdownView
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.b32
 import sumo.shared.generated.resources.sand_dark
 
 @Composable

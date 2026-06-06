@@ -312,7 +312,7 @@ class GameViewModel(
         startGameCountdownTimerJob = CountUpTimer()(
             startDelayMillis = 500L,
             start = 1,
-            end = 5,
+            end = 1,
             onStarted = {
                 _state.update { state ->
                     state.copy(
@@ -331,11 +331,11 @@ class GameViewModel(
                 scope.launch {
                     _state.update { state ->
                         val elapsedSeconds = it
-                        val done = elapsedSeconds == 5
+                        val done = elapsedSeconds == 1
                         state.copy(
                             startCountdownViewState = StartCountdownViewState(
                                 text = if (done) {
-                                    getString(Res.string.i_declare_a_thumb_war)
+                                    "FIGHT"//getString(Res.string.i_declare_a_thumb_war)
                                 } else {
                                     (it).toString()
                                 },

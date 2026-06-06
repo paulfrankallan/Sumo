@@ -22,12 +22,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import app.theme.appClay
 import app.theme.appRed
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.b2
 import sumo.shared.generated.resources.rikishi_blue
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -36,8 +34,8 @@ import kotlin.math.sqrt
 @Composable
 fun ThumbView(
     spotDiameter: Dp,
-    spotBackgroundColor: Color = appClay,
-    spotBackgroundImage: DrawableResource = Res.drawable.b2,
+    spotBackgroundColor: Color = Color.Transparent,
+    spotBackgroundImage: DrawableResource? = null,
     spotForegroundColor: Color?,
     spotForegroundImage: DrawableResource = Res.drawable.rikishi_blue,
     thumbOffsetPosition: Offset,
@@ -45,13 +43,15 @@ fun ThumbView(
     updateThumbOffsetPosition: (Offset) -> Unit = {},
     onPressed: (Boolean) -> Unit,
     onReleased: (Boolean) -> Unit,
-    doRotate: Boolean = false,
+    rotationDegrees: Float = 0f,
 ) {
     val density = LocalDensity.current
     val spotDiameterPx = with(density) { spotDiameter.toPx() }
     val spotRadiusPx = spotDiameterPx / 2
     val painterForeground = painterResource(resource = spotForegroundImage)
-    val painterBackground = painterResource(resource = spotBackgroundImage)
+    val painterBackground = spotBackgroundImage?.let {
+        painterResource(resource = spotBackgroundImage)
+    }
     val imageSize = Size(spotDiameterPx, spotDiameterPx)
     val intOffset = remember { mutableStateOf(IntOffset(0, 0)) }
     val circleCenter = Offset(spotRadiusPx, spotRadiusPx)
@@ -124,25 +124,25 @@ fun ThumbView(
             center = Offset(size.width / 2, size.height / 2),
             radius = spotRadiusPx
         )
-        with(painterBackground) {
-            drawIntoCanvas { canvas ->
-                val path = Path().apply {
-                    addOval(Rect(0f, 0f, imageSize.width, imageSize.height))
-                }
-                canvas.withSave {
-                    canvas.clipPath(path)
-                    draw(
-                        size = imageSize,
-                    )
+        painterBackground?.let {
+            with(painterBackground) {
+                drawIntoCanvas { canvas ->
+                    val path = Path().apply {
+                        addOval(Rect(0f, 0f, imageSize.width, imageSize.height))
+                    }
+                    canvas.withSave {
+                        canvas.clipPath(path)
+                        draw(
+                            size = imageSize,
+                        )
+                    }
                 }
             }
         }
         with(painterForeground) {
             drawIntoCanvas { canvas ->
                 canvas.withSave {
-                    if (doRotate) {
-                        canvas.rotate(180f, center.x, center.y)
-                    }
+                    canvas.rotate(rotationDegrees, center.x, center.y)
                     draw(
                         size = imageSize,
                         colorFilter = spotForegroundColor?.let {

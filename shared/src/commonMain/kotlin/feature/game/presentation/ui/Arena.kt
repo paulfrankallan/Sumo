@@ -15,15 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalDensity
 import app.LocalScreen
-import app.theme.appClay
-import app.theme.appGold
-import app.theme.appRed
-import app.theme.appSand
 import feature.common.presentation.Intent
 import feature.game.domain.logic.ArenaPhysics.calculatePushVector
 import feature.game.domain.logic.ArenaPhysics.doThumbSpotsOverlap
@@ -35,9 +30,9 @@ import feature.game.presentation.model.Player
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.b26
 import sumo.shared.generated.resources.dohyo
-import sumo.shared.generated.resources.dohyo2
+import kotlin.math.PI
+import kotlin.math.atan2
 
 @Composable
 fun Arena(
@@ -68,11 +63,31 @@ fun Arena(
     val currentState = rememberUpdatedState(state)
     val currentKey = remember { mutableStateOf<String?>(null) }
 
+    val topRotationDegrees = remember {
+        derivedStateOf {
+            val topCenter = Offset(
+                topThumbPosition.value.x + spotRadiusPx,
+                topThumbPosition.value.y + spotRadiusPx
+            )
+            val bottomCenter = Offset(
+                bottomThumbPosition.value.x + spotRadiusPx,
+                bottomThumbPosition.value.y + spotRadiusPx
+            )
+            val dx = bottomCenter.x - topCenter.x
+            val dy = bottomCenter.y - topCenter.y
+            if (dx == 0f && dy == 0f) 0f
+            else (atan2(-dx.toDouble(), dy.toDouble()) * 180.0 / PI).toFloat()
+        }
+    }
+    val bottomRotationDegrees = remember {
+        derivedStateOf { topRotationDegrees.value + 180f }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
     ) {
-        val barbedWirePainter = painterResource(resource = Res.drawable.dohyo2)
+        val barbedWirePainter = painterResource(resource = Res.drawable.dohyo)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = size.width
             val canvasHeight = size.height
@@ -109,39 +124,6 @@ fun Arena(
                 }
             }
         }
-//        Canvas(modifier = Modifier.fillMaxSize()) {
-//            val canvasWidth = size.width
-//            val canvasHeight = size.height
-//            circleCenter.value = Offset(canvasWidth / 2, canvasHeight / 2)
-//            circleDiameter.value = canvasWidth * 0.88f // 88% width of canvas.
-//            circleRadius.value = circleDiameter.value / 2
-//            val boundaryColor = if (isOutOfBounds.value || state.isGameOver) appRed else appGold
-//            val innerSandRadius = circleRadius.value * 0.79f
-//            val boundaryRadius = circleRadius.value * 0.89f
-//            val boundaryStroke = circleRadius.value * 0.085f
-//
-//            drawCircle(
-//                color = appClay,
-//                center = circleCenter.value,
-//                radius = circleRadius.value,
-//            )
-//            drawCircle(
-//                color = appSand,
-//                center = circleCenter.value,
-//                radius = innerSandRadius,
-//            )
-//            drawCircle(
-//                color = boundaryColor,
-//                center = circleCenter.value,
-//                radius = boundaryRadius,
-//                style = Stroke(width = boundaryStroke)
-//            )
-//            drawCircle(
-//                color = Color.White.copy(alpha = 0.15f),
-//                center = circleCenter.value,
-//                radius = circleRadius.value * 0.08f
-//            )
-//        }
         // Top ThumbView
         ThumbView(
             thumbOffsetPosition = topThumbPosition.value,
@@ -206,13 +188,12 @@ fun Arena(
                 onReleased(currentState.value.topPlayer)
             },
             spotDiameter = spotDiameter,
-            doRotate = true
+            rotationDegrees = topRotationDegrees.value
         )
         // Bottom ThumbView
         ThumbView(
             thumbOffsetPosition = bottomThumbPosition.value,
             isOutOfBounds = isBottomThumbOutOfBounds.value,
-            spotBackgroundImage = Res.drawable.b26,
             updateThumbOffsetPosition = { dragAmount ->
                 if (currentState.value.playState != PlayState.IN_PROGRESS) {
                     return@ThumbView
@@ -273,9 +254,9 @@ fun Arena(
                 ) return@ThumbView
                 onReleased(currentState.value.bottomPlayer)
             },
-            spotDiameter = spotDiameter
+            spotDiameter = spotDiameter,
+            rotationDegrees = bottomRotationDegrees.value
         )
-
         GameOverView(state = currentState.value)
     }
 

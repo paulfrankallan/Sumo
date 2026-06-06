@@ -30,7 +30,6 @@ import feature.game.nav.navigateToPlayGame
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.bg_1
 
 @Composable
 fun HomeScreen(
@@ -96,12 +95,12 @@ fun HomeContent(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            Image(
-                painter = painterResource(resource = Res.drawable.bg_1),
-                contentDescription = null,
-                contentScale = ContentScale.FillBounds,
-                modifier = Modifier.fillMaxSize(),
-            )
+//            Image(
+//                painter = painterResource(resource = Res.drawable.bg_1),
+//                contentDescription = null,
+//                contentScale = ContentScale.FillBounds,
+//                modifier = Modifier.fillMaxSize(),
+//            )
             Column(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
