@@ -19,13 +19,11 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import feature.game.presentation.ui.ActionPanel
-import feature.game.presentation.ui.Dohyo
+import feature.game.presentation.ui.Janome
 import feature.game.presentation.ui.IntroCountdownView
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.sand_dark
-import sumo.shared.generated.resources.sand_light
 import sumo.shared.generated.resources.sand_medium
 
 @Composable
@@ -76,7 +74,7 @@ fun GameScreen(
                 onIntent = viewModel::onIntent,
                 modifier = Modifier.rotate(180f)
             )
-            Dohyo(
+            Janome(
                 state = state,
                 modifier = Modifier
                     .fillMaxWidth()

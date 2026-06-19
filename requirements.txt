@@ -5,8 +5,20 @@
 
 TODO
 
-* App icon
+* App icon - Done
 * Game graphics
 * App theme
 * Create AdMob app
 * Ad IDs
+* Home screen
+* Instructions screen
+
+
+* Crowd cheering sound effect
+    - louder when a Rikishi is near the edge of the ring
+    - louder when a Rikishi is thrown out of the ring
+
+
+
+Gyōji = referee in the ring.
+Shimpan = judges around the ring who can overrule the Gyōji.
