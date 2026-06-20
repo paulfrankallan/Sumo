@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +17,10 @@ import androidx.compose.ui.draw.paint
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.dp
+import app.presentation.HealthBar
+import app.theme.playerOneColor
+import app.theme.playerTwoColor
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import feature.game.presentation.ui.ActionPanel
@@ -74,6 +79,15 @@ fun GameScreen(
                 onIntent = viewModel::onIntent,
                 modifier = Modifier.rotate(180f)
             )
+            HealthBar(
+                health = state.topPlayer.health,
+                foregroundColor = playerTwoColor,
+                backgroundColor = playerTwoColor.copy(alpha = 0.25f),
+                height = 14.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
             Janome(
                 state = state,
                 modifier = Modifier
@@ -90,6 +104,15 @@ fun GameScreen(
                 },
                 resetThumbPositions = resetThumbPositions,
                 onIntent = viewModel::onIntent
+            )
+            HealthBar(
+                health = state.bottomPlayer.health,
+                foregroundColor = playerOneColor,
+                backgroundColor = playerOneColor.copy(alpha = 0.25f),
+                height = 14.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             )
             // Bottom Action Panel
             ActionPanel(

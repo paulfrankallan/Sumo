@@ -12,6 +12,8 @@ TODO
 * Ad IDs
 * Home screen
 * Instructions screen
+* Settings screen
+* Privacy policy - Done
 
 
 * Crowd cheering sound effect
