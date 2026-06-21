@@ -38,7 +38,11 @@ class GameViewModel(
 ) : CMViewModel<GameState, Intent>() {
     private var gameId: String? = null
     private var startGameCountdownTimerJob: Job? = null
-    private val isResettingAfterDamage = mutableStateOf(false)
+    // Per-player flags prevent double damage to the same player in one reset cycle
+    // while still allowing both players to be damaged in the same cycle.
+    private val isTopResettingAfterDamage = mutableStateOf(false)
+    private val isBottomResettingAfterDamage = mutableStateOf(false)
+    // Single shared position reset — both Rikishi always return to start together.
     private val _resetThumbPositions = mutableStateOf(false)
     val resetThumbPositions: State<Boolean> = _resetThumbPositions
 
@@ -87,6 +91,8 @@ class GameViewModel(
                         ui = UI()
                     )
                 }
+                // Reset both Rikishi to their starting positions for the new game.
+                triggerResetThumbPositions()
                 invokeGameStartCountdownTimer()
             }
 
@@ -119,12 +125,19 @@ class GameViewModel(
             }
 
             is GameIntent.PlayerDamaged -> {
-                if (isResettingAfterDamage.value.not()) {
-                    isResettingAfterDamage.value = true
+                val isTop = intent.player.position == Position.TOP
+                val alreadyResetting = if (isTop) isTopResettingAfterDamage.value
+                                       else isBottomResettingAfterDamage.value
+                if (!alreadyResetting) {
+                    if (isTop) isTopResettingAfterDamage.value = true
+                    else isBottomResettingAfterDamage.value = true
                     _state.update { state -> applyDamage(state, intent.player) }
-                    triggerResetThumbPositions()
-                    // Sound only when damage is actually applied — not on subsequent
-                    // blocked calls that arrive during the reset window.
+                    // Only the first player to be damaged this cycle triggers the shared
+                    // reset — both positions always reset together. The second player's
+                    // damage is still applied to their health; they ride the same reset.
+                    val otherAlreadyResetting = if (isTop) isBottomResettingAfterDamage.value
+                                                else isTopResettingAfterDamage.value
+                    if (!otherAlreadyResetting) triggerResetThumbPositions()
                     scope.launch(Dispatchers.Default) {
                         soundAndVibration.gameOverFeedback()
                     }
@@ -138,7 +151,8 @@ class GameViewModel(
             }
 
             is GameIntent.ResetThumbsComplete -> {
-                isResettingAfterDamage.value = false
+                isTopResettingAfterDamage.value = false
+                isBottomResettingAfterDamage.value = false
             }
         }
     }

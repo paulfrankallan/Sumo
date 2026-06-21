@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 @Composable
-fun ThumbView(
+fun Rikishi(
     spotDiameter: Dp,
     spotBackgroundColor: Color = Color.Transparent,
     spotBackgroundImage: DrawableResource? = null,
@@ -101,6 +101,11 @@ fun ThumbView(
                         hasReleased.value = true
                     }
                     updateThumbOffsetPosition(touchPosition - touchOffset.value)
+                    // Update so each event receives only the incremental delta, not the
+                    // accumulated total from drag start. Without this, the drag amount
+                    // grows unboundedly, causing the Rikishi to leap back out of bounds
+                    // immediately after every damage reset.
+                    touchOffset.value = touchPosition
                 }
             }
             .pointerInput(Unit) {

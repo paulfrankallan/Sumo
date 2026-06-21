@@ -61,7 +61,12 @@ fun Dohyo(
     val spotDiameterPx = with(density) { spotDiameter.toPx() }
     val spotRadiusPx = spotDiameterPx / 2
     val isTopThumbOutOfBounds = remember { mutableStateOf(false) }
-    val isBottomThumbOutOfBounds = remember { mutableStateOf(false)     }
+    val isBottomThumbOutOfBounds = remember { mutableStateOf(false) }
+    // Damage gate flags — live in Dohyo alongside the bounds state so they are
+    // cleared atomically with the position reset, preventing any rapid-fire repeat
+    // damage calls before the LaunchedEffect reset propagates back to the ViewModel.
+    val isTopDamageGated = remember { mutableStateOf(false) }
+    val isBottomDamageGated = remember { mutableStateOf(false) }
     val isOutOfBounds = derivedStateOf {
         isTopThumbOutOfBounds.value || isBottomThumbOutOfBounds.value
     }
@@ -93,11 +98,14 @@ fun Dohyo(
             topThumbPosition.value.x + dragAmount.x,
             topThumbPosition.value.y + dragAmount.y
         )
-        if (isDamageDetected(currentState.value, isTopThumbOutOfBounds.value)) {
-            onDamageDetected(currentState.value.topPlayer); return@moveTop
-        }
-        if (isDamageDetected(currentState.value, isBottomThumbOutOfBounds.value)) {
-            onDamageDetected(currentState.value.bottomPlayer); return@moveTop
+        val wouldCrossTawara = isOutOfBounds(newSpotPosition, circleCenter.value, circleRadius.value, spotRadiusPx)
+        if (isDamageDetected(currentState.value, isTopThumbOutOfBounds.value || wouldCrossTawara)) {
+            isTopThumbOutOfBounds.value = true
+            if (!isTopDamageGated.value) {
+                isTopDamageGated.value = true
+                onDamageDetected(currentState.value.topPlayer)
+            }
+            return@moveTop
         }
         if (doThumbSpotsOverlap(
                 firstThumbCenter = newSpotPosition,
@@ -111,7 +119,17 @@ fun Dohyo(
                 stationarySpotCenter = bottomThumbPosition.value,
                 dragAmount = dragAmount
             )
-            bottomThumbPosition.value += pushVector
+            val pushedBottomPosition = bottomThumbPosition.value + pushVector
+            if (isDamageDetected(currentState.value,
+                    isOutOfBounds(pushedBottomPosition, circleCenter.value, circleRadius.value, spotRadiusPx))) {
+                isBottomThumbOutOfBounds.value = true
+                if (!isBottomDamageGated.value) {
+                    isBottomDamageGated.value = true
+                    onDamageDetected(currentState.value.bottomPlayer)
+                }
+                return@moveTop
+            }
+            bottomThumbPosition.value = pushedBottomPosition
         } else {
             topThumbPosition.value = newSpotPosition
         }
@@ -132,11 +150,14 @@ fun Dohyo(
             bottomThumbPosition.value.x + dragAmount.x,
             bottomThumbPosition.value.y + dragAmount.y
         )
-        if (isDamageDetected(currentState.value, isBottomThumbOutOfBounds.value)) {
-            onDamageDetected(currentState.value.bottomPlayer); return@moveBottom
-        }
-        if (isDamageDetected(currentState.value, isTopThumbOutOfBounds.value)) {
-            onDamageDetected(currentState.value.topPlayer); return@moveBottom
+        val wouldCrossTawara = isOutOfBounds(newSpotPosition, circleCenter.value, circleRadius.value, spotRadiusPx)
+        if (isDamageDetected(currentState.value, isBottomThumbOutOfBounds.value || wouldCrossTawara)) {
+            isBottomThumbOutOfBounds.value = true
+            if (!isBottomDamageGated.value) {
+                isBottomDamageGated.value = true
+                onDamageDetected(currentState.value.bottomPlayer)
+            }
+            return@moveBottom
         }
         if (doThumbSpotsOverlap(
                 firstThumbCenter = newSpotPosition,
@@ -150,7 +171,17 @@ fun Dohyo(
                 stationarySpotCenter = topThumbPosition.value,
                 dragAmount = dragAmount
             )
-            topThumbPosition.value += pushVector
+            val pushedTopPosition = topThumbPosition.value + pushVector
+            if (isDamageDetected(currentState.value,
+                    isOutOfBounds(pushedTopPosition, circleCenter.value, circleRadius.value, spotRadiusPx))) {
+                isTopThumbOutOfBounds.value = true
+                if (!isTopDamageGated.value) {
+                    isTopDamageGated.value = true
+                    onDamageDetected(currentState.value.topPlayer)
+                }
+                return@moveBottom
+            }
+            topThumbPosition.value = pushedTopPosition
         } else {
             bottomThumbPosition.value = newSpotPosition
         }
@@ -232,7 +263,7 @@ fun Dohyo(
             }
         }
         // Top ThumbView
-        ThumbView(
+        Rikishi(
             thumbOffsetPosition = topThumbPosition.value,
             isOutOfBounds = isTopThumbOutOfBounds.value,
             updateThumbOffsetPosition = { dragAmount -> moveTopRikishi(dragAmount) },
@@ -246,7 +277,7 @@ fun Dohyo(
             rotationDegrees = topRotationDegrees.value
         )
         // Bottom ThumbView
-        ThumbView(
+        Rikishi(
             thumbOffsetPosition = bottomThumbPosition.value,
             isOutOfBounds = isBottomThumbOutOfBounds.value,
             updateThumbOffsetPosition = { dragAmount -> moveBottomRikishi(dragAmount) },
@@ -263,6 +294,9 @@ fun Dohyo(
     }
 
     LaunchedEffect(resetThumbPositions) {
+        // Clear damage gates first so no damage fires during position restoration.
+        isTopDamageGated.value = false
+        isBottomDamageGated.value = false
         isTopThumbOutOfBounds.value = false
         topThumbPosition.value = Offset(
             circleCenter.value.x - spotRadiusPx,
@@ -273,10 +307,6 @@ fun Dohyo(
             circleCenter.value.x - spotRadiusPx,
             (circleCenter.value.y - spotRadiusPx) + spotDiameterPx
         )
-        // Fire directly here rather than relying on snapshotFlow position equality:
-        // the joystick loop can move the Rikishi away from the reset position within the
-        // same snapshot frame, so the equality check would never fire and
-        // isResettingAfterDamage would stay true permanently.
         onIntent(GameIntent.ResetThumbsComplete)
     }
 
