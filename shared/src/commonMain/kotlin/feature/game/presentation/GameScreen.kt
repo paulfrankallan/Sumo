@@ -44,7 +44,8 @@ fun GameScreen(
     val viewModel: GameViewModel = koinInject()
     val state by viewModel.state.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val resetThumbPositions by viewModel.resetThumbPositions
+    val resetTopThumbPosition by viewModel.resetTopThumbPosition
+    val resetBottomThumbPosition by viewModel.resetBottomThumbPosition
 
     val topJoystickState = rememberJoystickState()
     val bottomJoystickState = rememberJoystickState()
@@ -121,7 +122,8 @@ fun GameScreen(
                 onReleased = { player ->
                     Unit
                 },
-                resetThumbPositions = resetThumbPositions,
+                resetTopThumbPosition = resetTopThumbPosition,
+                resetBottomThumbPosition = resetBottomThumbPosition,
                 onIntent = viewModel::onIntent,
                 topJoystickState = topJoystickState,
                 bottomJoystickState = bottomJoystickState,

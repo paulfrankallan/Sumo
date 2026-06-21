@@ -62,5 +62,6 @@ sealed class GameIntent : Intent {
     data class GameOver(val result: GameOverResult? = null) : GameIntent()
     data class PlayerDamaged(val player: Player) : GameIntent()
     data class PressStateChanged(val isPressed: Boolean, val player: Player) : GameIntent()
-    data object ResetThumbsComplete : GameIntent()
+    data object ResetTopThumbComplete : GameIntent()
+    data object ResetBottomThumbComplete : GameIntent()
 }

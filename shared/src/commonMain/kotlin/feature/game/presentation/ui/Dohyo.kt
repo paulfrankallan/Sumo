@@ -45,7 +45,8 @@ fun Dohyo(
     onPressed: (Boolean, Player) -> Unit,
     onReleased: (player: Player) -> Unit,
     onIntent: (Intent) -> Unit,
-    resetThumbPositions: Boolean,
+    resetTopThumbPosition: Boolean,
+    resetBottomThumbPosition: Boolean,
     topJoystickState: JoystickState? = null,
     bottomJoystickState: JoystickState? = null,
 ) {
@@ -96,9 +97,6 @@ fun Dohyo(
         if (isDamageDetected(currentState.value, isTopThumbOutOfBounds.value)) {
             onDamageDetected(currentState.value.topPlayer); return@moveTop
         }
-        if (isDamageDetected(currentState.value, isBottomThumbOutOfBounds.value)) {
-            onDamageDetected(currentState.value.bottomPlayer); return@moveTop
-        }
         if (doThumbSpotsOverlap(
                 firstThumbCenter = newSpotPosition,
                 secondThumbCenter = bottomThumbPosition.value,
@@ -134,9 +132,6 @@ fun Dohyo(
         )
         if (isDamageDetected(currentState.value, isBottomThumbOutOfBounds.value)) {
             onDamageDetected(currentState.value.bottomPlayer); return@moveBottom
-        }
-        if (isDamageDetected(currentState.value, isTopThumbOutOfBounds.value)) {
-            onDamageDetected(currentState.value.topPlayer); return@moveBottom
         }
         if (doThumbSpotsOverlap(
                 firstThumbCenter = newSpotPosition,
@@ -262,22 +257,24 @@ fun Dohyo(
         GameOverView(state = currentState.value)
     }
 
-    LaunchedEffect(resetThumbPositions) {
+    // Each player's Rikishi resets independently so one player's damage cycle
+    // cannot pull the other player's position away from the Tawara mid-approach.
+    LaunchedEffect(resetTopThumbPosition) {
         isTopThumbOutOfBounds.value = false
         topThumbPosition.value = Offset(
             circleCenter.value.x - spotRadiusPx,
             (circleCenter.value.y - spotRadiusPx) - spotDiameterPx
         )
+        onIntent(GameIntent.ResetTopThumbComplete)
+    }
+
+    LaunchedEffect(resetBottomThumbPosition) {
         isBottomThumbOutOfBounds.value = false
         bottomThumbPosition.value = Offset(
             circleCenter.value.x - spotRadiusPx,
             (circleCenter.value.y - spotRadiusPx) + spotDiameterPx
         )
-        // Fire directly here rather than relying on snapshotFlow position equality:
-        // the joystick loop can move the Rikishi away from the reset position within the
-        // same snapshot frame, so the equality check would never fire and
-        // isResettingAfterDamage would stay true permanently.
-        onIntent(GameIntent.ResetThumbsComplete)
+        onIntent(GameIntent.ResetBottomThumbComplete)
     }
 
     LaunchedEffect(topJoystickState) {

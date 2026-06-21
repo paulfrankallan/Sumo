@@ -38,12 +38,19 @@ class GameViewModel(
 ) : CMViewModel<GameState, Intent>() {
     private var gameId: String? = null
     private var startGameCountdownTimerJob: Job? = null
-    private val isResettingAfterDamage = mutableStateOf(false)
-    private val _resetThumbPositions = mutableStateOf(false)
-    val resetThumbPositions: State<Boolean> = _resetThumbPositions
+    private val isTopResettingAfterDamage = mutableStateOf(false)
+    private val isBottomResettingAfterDamage = mutableStateOf(false)
+    private val _resetTopThumbPosition = mutableStateOf(false)
+    private val _resetBottomThumbPosition = mutableStateOf(false)
+    val resetTopThumbPosition: State<Boolean> = _resetTopThumbPosition
+    val resetBottomThumbPosition: State<Boolean> = _resetBottomThumbPosition
 
-    private fun triggerResetThumbPositions() {
-        _resetThumbPositions.value = !_resetThumbPositions.value
+    private fun triggerResetTopThumb() {
+        _resetTopThumbPosition.value = !_resetTopThumbPosition.value
+    }
+
+    private fun triggerResetBottomThumb() {
+        _resetBottomThumbPosition.value = !_resetBottomThumbPosition.value
     }
 
     init {
@@ -87,6 +94,9 @@ class GameViewModel(
                         ui = UI()
                     )
                 }
+                // Reset both Rikishi to their starting positions for the new game.
+                triggerResetTopThumb()
+                triggerResetBottomThumb()
                 invokeGameStartCountdownTimer()
             }
 
@@ -119,12 +129,21 @@ class GameViewModel(
             }
 
             is GameIntent.PlayerDamaged -> {
-                if (isResettingAfterDamage.value.not()) {
-                    isResettingAfterDamage.value = true
-                    _state.update { state -> applyDamage(state, intent.player) }
-                    triggerResetThumbPositions()
-                    // Sound only when damage is actually applied — not on subsequent
-                    // blocked calls that arrive during the reset window.
+                val isTop = intent.player.position == Position.TOP
+                val alreadyResetting = if (isTop) isTopResettingAfterDamage.value
+                                       else isBottomResettingAfterDamage.value
+                if (!alreadyResetting) {
+                    if (isTop) {
+                        isTopResettingAfterDamage.value = true
+                        _state.update { state -> applyDamage(state, intent.player) }
+                        // Reset only the damaged player's Rikishi so the opponent's
+                        // position is unaffected and their damage cycle stays independent.
+                        triggerResetTopThumb()
+                    } else {
+                        isBottomResettingAfterDamage.value = true
+                        _state.update { state -> applyDamage(state, intent.player) }
+                        triggerResetBottomThumb()
+                    }
                     scope.launch(Dispatchers.Default) {
                         soundAndVibration.gameOverFeedback()
                     }
@@ -137,8 +156,12 @@ class GameViewModel(
                 }
             }
 
-            is GameIntent.ResetThumbsComplete -> {
-                isResettingAfterDamage.value = false
+            is GameIntent.ResetTopThumbComplete -> {
+                isTopResettingAfterDamage.value = false
+            }
+
+            is GameIntent.ResetBottomThumbComplete -> {
+                isBottomResettingAfterDamage.value = false
             }
         }
     }

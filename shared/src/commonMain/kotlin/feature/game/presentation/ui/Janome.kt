@@ -23,7 +23,8 @@ fun Janome(
     onPressed: (Boolean, Player) -> Unit,
     onReleased: (player: Player) -> Unit,
     onIntent: (Intent) -> Unit,
-    resetThumbPositions: Boolean,
+    resetTopThumbPosition: Boolean,
+    resetBottomThumbPosition: Boolean,
     topJoystickState: JoystickState? = null,
     bottomJoystickState: JoystickState? = null,
 ) {
@@ -39,7 +40,8 @@ fun Janome(
             onPressed = onPressed,
             onReleased = onReleased,
             onIntent = onIntent,
-            resetThumbPositions = resetThumbPositions,
+            resetTopThumbPosition = resetTopThumbPosition,
+            resetBottomThumbPosition = resetBottomThumbPosition,
             topJoystickState = topJoystickState,
             bottomJoystickState = bottomJoystickState,
         )
