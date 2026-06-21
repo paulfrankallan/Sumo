@@ -8,6 +8,7 @@ import androidx.compose.ui.draw.paint
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import feature.common.presentation.Intent
+import feature.game.joystick.ui.state.JoystickState
 import feature.game.presentation.GameState
 import feature.game.presentation.model.Player
 import org.jetbrains.compose.resources.painterResource
@@ -22,7 +23,9 @@ fun Janome(
     onPressed: (Boolean, Player) -> Unit,
     onReleased: (player: Player) -> Unit,
     onIntent: (Intent) -> Unit,
-    resetThumbPositions: Boolean
+    resetThumbPositions: Boolean,
+    topJoystickState: JoystickState? = null,
+    bottomJoystickState: JoystickState? = null,
 ) {
     Box(
         modifier = modifier.padding(horizontal = 8.dp).paint(
@@ -36,7 +39,9 @@ fun Janome(
             onPressed = onPressed,
             onReleased = onReleased,
             onIntent = onIntent,
-            resetThumbPositions = resetThumbPositions
+            resetThumbPositions = resetThumbPositions,
+            topJoystickState = topJoystickState,
+            bottomJoystickState = bottomJoystickState,
         )
     }
 }

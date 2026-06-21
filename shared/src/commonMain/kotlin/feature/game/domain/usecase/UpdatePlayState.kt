@@ -18,7 +18,6 @@ class UpdatePlayState {
         return gameState.copy(
             topPlayer = if (player.position == Position.TOP) {
                 gameState.topPlayer.copy(
-                    isResetting = false,
                     thumbState = if (isPressed) ThumbState.PRESSED else ThumbState.RELEASED
                 )
             } else {
@@ -26,17 +25,11 @@ class UpdatePlayState {
             },
             bottomPlayer = if (player.position == Position.BOTTOM) {
                 gameState.bottomPlayer.copy(
-                    isResetting = false,
                     thumbState = if (isPressed) ThumbState.PRESSED else ThumbState.RELEASED
                 )
             } else {
                 gameState.bottomPlayer
             }
         )
-    }
-
-    private fun areBothThumbsPressed(gameState: GameState): Boolean {
-        return gameState.topPlayer.thumbState == ThumbState.PRESSED &&
-                gameState.bottomPlayer.thumbState == ThumbState.PRESSED
     }
 }

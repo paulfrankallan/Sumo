@@ -1,9 +1,7 @@
 package feature.settings.data
 
-import app.nav.EnumArgumentAdapter
 import com.russhwolf.settings.ExperimentalSettingsApi
 import com.russhwolf.settings.Settings
-import feature.common.model.GameType
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
@@ -15,7 +13,6 @@ class PrefsRepository(
         const val PREF_KEY_SOUND = "PREF_KEY_SOUND"
         const val PREF_KEY_VIBRATE = "PREF_KEY_VIBRATE"
         const val PREF_KEY_MUSIC = "PREF_KEY_MUSIC"
-        const val PREF_KEY_GAME_TYPE= "PREF_KEY_GAME_TYPE"
     }
 
     private val _switchPreferences = MutableSharedFlow<Map<String, Boolean>>(replay = 1)
@@ -55,18 +52,6 @@ class PrefsRepository(
 
     fun isVibrateEnabled(): Boolean {
         return settings.getBoolean(PREF_KEY_VIBRATE, true)
-    }
-
-    fun setGameType(gameType: GameType) {
-        EnumArgumentAdapter<GameType>().encode(gameType).let {
-            settings.putString(PREF_KEY_GAME_TYPE, it)
-        }
-    }
-
-    fun getGameType(): GameType {
-        return settings.getStringOrNull(PREF_KEY_GAME_TYPE)?.let {
-            EnumArgumentAdapter<GameType>().decode(it)
-        } ?: GameType.STRENGTH
     }
 
     fun clear() {

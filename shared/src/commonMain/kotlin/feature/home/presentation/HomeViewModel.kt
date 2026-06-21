@@ -17,7 +17,6 @@ class HomeViewModel(
         _state.update { state ->
             state.copy(
                 musicOn = repository.isMusicOn(),
-                gameType = repository.getGameType()
             )
         }
     }
@@ -44,10 +43,6 @@ class HomeViewModel(
                 _state.update { state ->
                     state.copy(musicOn = musicOn)
                 }
-            }
-
-            is HomeIntent.GameTypeSelected -> {
-                repository.setGameType(intent.gameType)
             }
         }
     }

@@ -1,12 +1,9 @@
 package feature.home.presentation
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -15,9 +12,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import app.nav.NavController
@@ -27,9 +22,7 @@ import co.touchlab.kermit.Logger
 import feature.common.events.DialogEvent
 import feature.common.presentation.Intent
 import feature.game.nav.navigateToPlayGame
-import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
-import sumo.shared.generated.resources.Res
 
 @Composable
 fun HomeScreen(
@@ -110,14 +103,6 @@ fun HomeContent(
             ) {
                 SumoLaunchBtn(
                     modifier = Modifier.weight(1f)
-                )
-                GameTypeSelectionButton(
-                    modifier = Modifier
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 56.dp)
-                        .height(50.dp),
-                    onIntent = onIntent,
-                    gameType = state.gameType
                 )
             }
         }

@@ -1,7 +1,6 @@
 package app.data
 
 import com.russhwolf.settings.ExperimentalSettingsApi
-import feature.common.model.GameType
 import feature.settings.data.PrefsRepository
 
 @OptIn(ExperimentalSettingsApi::class)
@@ -22,14 +21,6 @@ class AppRepository(
         val toggled = isMusicOn().not()
         setMusicOn(toggled)
         return toggled
-    }
-
-    fun getGameType(): GameType {
-        return preferences.getGameType()
-    }
-
-    fun setGameType(gameType: GameType) {
-        preferences.setGameType(gameType)
     }
 
     // endregion Preferences

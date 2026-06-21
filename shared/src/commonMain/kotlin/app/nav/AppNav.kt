@@ -26,8 +26,6 @@ import feature.instructions.nav.INSTRUCTIONS_SCREEN_ROUTE
 import feature.instructions.presentation.InstructionsScreen
 import feature.settings.nav.SETTINGS_SCREEN_ROUTE
 import feature.settings.presentation.SettingsScreen
-import feature.spike.SPIKE_SCREEN_ROUTE
-import feature.spike.SpikeScreen
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.koin.compose.koinInject
 
@@ -61,7 +59,6 @@ fun AppNav(
     NavHost(
         navController = NavController.current,
         startDestination = HOME_SCREEN_ROUTE,
-//        startDestination = SPIKE_SCREEN_ROUTE,
         modifier = Modifier
             .padding(bottom = if(isBannerAdVisible.value) bannerHeight.dp else 0.dp)
             .fillMaxSize()
@@ -95,9 +92,6 @@ fun AppNav(
             UserFeedbackScreen(
                 showInterstitialAd = showInterstitial
             )
-        }
-        composable(route = SPIKE_SCREEN_ROUTE) {
-            SpikeScreen()
         }
     }
 }

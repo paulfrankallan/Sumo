@@ -2,12 +2,10 @@ package platform.di
 
 import app.data.AppRepository
 import app.sound.SoundAndVibrationFeedback
-import app.util.CountdownTimer
 import com.russhwolf.settings.ExperimentalSettingsApi
 import com.russhwolf.settings.Settings
 import feature.ads.AdManager
 import feature.game.domain.usecase.ApplyDamage
-import feature.game.domain.usecase.GetThumbPrintActionPanelState
 import feature.game.domain.usecase.UpdatePlayState
 import feature.settings.data.PrefsRepository
 import feature.settings.domain.usecase.ResetAllData
@@ -41,8 +39,6 @@ fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {
             single { PrefsRepository(Settings()) }
             single { AppRepository(get()) }
             single { AdManager(get()) }
-            singleOf(::CountdownTimer)
-            singleOf(::GetThumbPrintActionPanelState)
         },
         platformModule(),
         viewModelsModule(),

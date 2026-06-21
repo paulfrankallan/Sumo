@@ -1,7 +1,6 @@
 package feature.game.domain.usecase
 
 import feature.common.events.GameOverEvent
-import feature.common.events.ResetThumbsEvent
 import feature.common.model.Position
 import feature.game.domain.model.GameOverResult
 import feature.game.presentation.GameState
@@ -25,10 +24,10 @@ class ApplyDamage {
                     ),
                     gameOverResult = gameOverResult,
                     playState = if(gameOverResult == null) PlayState.IN_PROGRESS else PlayState.FINISHED,
-                    events = gameState.events + if(gameOverResult == null) {
-                        ResetThumbsEvent(randomUUID())
+                    events = if (gameOverResult == null) {
+                        gameState.events
                     } else {
-                        GameOverEvent(id = randomUUID(), result = gameOverResult)
+                        gameState.events + GameOverEvent(id = randomUUID(), result = gameOverResult)
                     }
                 )
             }
@@ -44,10 +43,10 @@ class ApplyDamage {
                     ),
                     gameOverResult = gameOverResult,
                     playState = if(gameOverResult == null) PlayState.IN_PROGRESS else PlayState.FINISHED,
-                    events = gameState.events + if(gameOverResult == null) {
-                        ResetThumbsEvent(randomUUID())
+                    events = if (gameOverResult == null) {
+                        gameState.events
                     } else {
-                        GameOverEvent(id = randomUUID(), result = gameOverResult)
+                        gameState.events + GameOverEvent(id = randomUUID(), result = gameOverResult)
                     }
                 )
             }
