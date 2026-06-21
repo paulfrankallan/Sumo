@@ -10,7 +10,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -29,7 +28,6 @@ import feature.game.presentation.PlayState
 import feature.game.presentation.model.Player
 import feature.game.joystick.ui.state.JoystickState
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.shikiri_sen
@@ -275,34 +273,11 @@ fun Dohyo(
             circleCenter.value.x - spotRadiusPx,
             (circleCenter.value.y - spotRadiusPx) + spotDiameterPx
         )
-    }
-
-    LaunchedEffect(Unit) {
-        snapshotFlow { topThumbPosition.value }
-            .distinctUntilChanged()
-            .collect { newPosition ->
-                val topPosition = Offset(
-                    circleCenter.value.x - spotRadiusPx,
-                    (circleCenter.value.y - spotRadiusPx) - spotDiameterPx
-                )
-                if (newPosition == topPosition) {
-                    onIntent(GameIntent.ResetThumbsComplete)
-                }
-            }
-    }
-
-    LaunchedEffect(Unit) {
-        snapshotFlow { bottomThumbPosition.value }
-            .distinctUntilChanged()
-            .collect { newPosition ->
-                val bottomPosition = Offset(
-                    circleCenter.value.x - spotRadiusPx,
-                    (circleCenter.value.y - spotRadiusPx) + spotDiameterPx
-                )
-                if (newPosition == bottomPosition) {
-                    onIntent(GameIntent.ResetThumbsComplete)
-                }
-            }
+        // Fire directly here rather than relying on snapshotFlow position equality:
+        // the joystick loop can move the Rikishi away from the reset position within the
+        // same snapshot frame, so the equality check would never fire and
+        // isResettingAfterDamage would stay true permanently.
+        onIntent(GameIntent.ResetThumbsComplete)
     }
 
     LaunchedEffect(topJoystickState) {

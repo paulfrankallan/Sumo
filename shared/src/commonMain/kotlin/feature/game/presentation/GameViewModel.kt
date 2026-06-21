@@ -120,14 +120,14 @@ class GameViewModel(
 
             is GameIntent.PlayerDamaged -> {
                 if (isResettingAfterDamage.value.not()) {
-                    // Set the flag BEFORE the update lambda so it is never a side-effect
-                    // inside the lambda (which StateFlow may retry on concurrent updates).
                     isResettingAfterDamage.value = true
                     _state.update { state -> applyDamage(state, intent.player) }
                     triggerResetThumbPositions()
-                }
-                scope.launch(Dispatchers.Default) {
-                    soundAndVibration.gameOverFeedback()
+                    // Sound only when damage is actually applied — not on subsequent
+                    // blocked calls that arrive during the reset window.
+                    scope.launch(Dispatchers.Default) {
+                        soundAndVibration.gameOverFeedback()
+                    }
                 }
             }
 
