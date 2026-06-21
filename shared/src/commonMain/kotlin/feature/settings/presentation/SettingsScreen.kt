@@ -3,10 +3,12 @@
 package feature.settings.presentation
 
 import androidx.compose.foundation.layout.Arrangement.Absolute.spacedBy
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.HorizontalDivider
@@ -102,7 +104,7 @@ fun SettingsContent(
             SettingsTopBar()
         },
         contentWindowInsets = WindowInsets.displayCutout
-    ) {
+    ) { paddingValues ->
         Surface(
             color = colorHomeDarkGreen,
             modifier = Modifier
@@ -110,7 +112,8 @@ fun SettingsContent(
         ) {
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .padding(paddingValues),
                 verticalArrangement = spacedBy(8.dp)
             ) {
                 item {

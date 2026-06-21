@@ -8,12 +8,13 @@ TODO
 * App icon - Done
 * Game graphics
 * App theme
-* Create AdMob app
+* Create AdMob app - Done
 * Ad IDs
 * Home screen
 * Instructions screen
-* Settings screen
+* Settings screen -
 * Privacy policy - Done
+* Game Controls -
 
 
 * Crowd cheering sound effect
@@ -24,3 +25,5 @@ TODO
 
 Gyōji = referee in the ring.
 Shimpan = judges around the ring who can overrule the Gyōji.
+
+Poly lecturers vision of horror.
