@@ -16,8 +16,10 @@ import feature.game.domain.model.StartCountdownViewState
 import feature.game.domain.usecase.ApplyDamage
 import feature.game.domain.usecase.UpdatePlayState
 import feature.game.presentation.model.Player
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -46,16 +48,19 @@ class GameViewModel(
 
     init {
         scope.launch {
-            _state.collect {
-                it.events.forEach { event ->
-                    when (event) {
-                        is GameOverEvent -> {
-                            onIntent(GameIntent.GameOver(event.result))
-                            onEventComplete(event.id)
+            // distinctUntilChangedBy events prevents re-processing the same event list
+            // after onEventComplete removes an entry and re-emits an otherwise identical state.
+            _state.distinctUntilChangedBy { it.events }
+                .collect { gameState ->
+                    gameState.events.forEach { event ->
+                        when (event) {
+                            is GameOverEvent -> {
+                                onIntent(GameIntent.GameOver(event.result))
+                                onEventComplete(event.id)
+                            }
                         }
                     }
                 }
-            }
         }
     }
 
@@ -70,6 +75,9 @@ class GameViewModel(
     override fun onIntent(intent: Intent) {
         when (intent) {
             GameIntent.StartGame -> {
+                // Ignore rapid duplicate taps: only allow starting when not already mid-game.
+                if (state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver) return
+                startGameCountdownTimerJob?.cancel()
                 _state.update { state ->
                     state.copy(
                         gameId = randomUUID(),
@@ -97,23 +105,30 @@ class GameViewModel(
                         )
                     )
                 }
-                soundAndVibration.stopMusic(musicResourceId = RES_ID_MUSIC_3)
+                // Audio is I/O-bound — run off the Main thread to avoid blocking the UI.
+                scope.launch(Dispatchers.Default) {
+                    soundAndVibration.stopMusic(musicResourceId = RES_ID_MUSIC_3)
+                }
                 if (intent.result == null) return
                 if (gameId == null || gameId != state.value.gameId) {
                     gameId = state.value.gameId
-                    soundAndVibration.gameOverFeedback()
+                    scope.launch(Dispatchers.Default) {
+                        soundAndVibration.gameOverFeedback()
+                    }
                 }
             }
 
             is GameIntent.PlayerDamaged -> {
                 if (isResettingAfterDamage.value.not()) {
-                    _state.update { state ->
-                        isResettingAfterDamage.value = true
-                        applyDamage(state, intent.player)
-                    }
+                    // Set the flag BEFORE the update lambda so it is never a side-effect
+                    // inside the lambda (which StateFlow may retry on concurrent updates).
+                    isResettingAfterDamage.value = true
+                    _state.update { state -> applyDamage(state, intent.player) }
                     triggerResetThumbPositions()
                 }
-                soundAndVibration.gameOverFeedback()
+                scope.launch(Dispatchers.Default) {
+                    soundAndVibration.gameOverFeedback()
+                }
             }
 
             is GameIntent.PressStateChanged -> {
@@ -150,9 +165,7 @@ class GameViewModel(
         }
     }
 
-    override fun onNavigationComplete(navigationEvent: NavigationEvent) {
-
-    }
+    override fun onNavigationComplete(navigationEvent: NavigationEvent) {}
 
     override fun onEventComplete(eventId: String) {
         _state.update { currentState ->
@@ -168,15 +181,10 @@ class GameViewModel(
             onTick = {
                 scope.launch {
                     _state.update { state ->
-                        val elapsedSeconds = it
-                        val done = elapsedSeconds == 1
+                        val done = it == 1
                         state.copy(
                             startCountdownViewState = StartCountdownViewState(
-                                text = if (done) {
-                                    "FIGHT"
-                                } else {
-                                    (it).toString()
-                                },
+                                text = if (done) "FIGHT" else it.toString(),
                                 textColor = AppColor.BLOOD_RED.color,
                                 textSize = if (done) 48.sp else 192.sp,
                             ),
@@ -192,7 +200,10 @@ class GameViewModel(
                             playState = PlayState.IN_PROGRESS,
                         )
                     }
-                    soundAndVibration.startMusic(musicResourceId = RES_ID_MUSIC_3)
+                    // Audio off Main thread.
+                    scope.launch(Dispatchers.Default) {
+                        soundAndVibration.startMusic(musicResourceId = RES_ID_MUSIC_3)
+                    }
                 }
             }
         )
