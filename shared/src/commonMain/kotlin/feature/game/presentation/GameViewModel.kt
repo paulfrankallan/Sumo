@@ -2,6 +2,7 @@ package feature.game.presentation
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import app.sound.SoundAndVibrationFeedback
@@ -12,7 +13,13 @@ import feature.common.model.Position
 import feature.common.presentation.CMViewModel
 import feature.common.presentation.Intent
 import feature.common.presentation.NavigationEvent
+import feature.game.domain.engine.GameLoop
+import feature.game.domain.input.InputCommand
+import feature.game.domain.model.ArenaWorld
+import feature.game.domain.model.GameWorld
+import feature.game.domain.model.RikishiBody
 import feature.game.domain.model.StartCountdownViewState
+import feature.game.domain.physics.PhysicsEvent
 import feature.game.domain.usecase.ApplyDamage
 import feature.game.domain.usecase.UpdatePlayState
 import feature.game.presentation.model.Player
@@ -20,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -35,6 +43,7 @@ class GameViewModel(
     private val applyDamage: ApplyDamage,
     private val updatePlayState: UpdatePlayState,
     private val soundAndVibration: SoundAndVibrationFeedback,
+    val gameLoop: GameLoop = GameLoop(),
 ) : CMViewModel<GameState, Intent>() {
     private var gameId: String? = null
     private var startGameCountdownTimerJob: Job? = null
@@ -50,10 +59,20 @@ class GameViewModel(
         _resetThumbPositions.value = !_resetThumbPositions.value
     }
 
+    private fun currentInitialWorld(state: GameState): GameWorld? {
+        val centre = state.arenaCentre ?: return null
+        val arenaRadius = state.arenaRadius ?: return null
+        val rikishiRadius = state.rikishiRadius ?: return null
+        val offset = Offset(0f, arenaRadius * 0.55f)
+        return GameWorld(
+            arena = ArenaWorld(centre, arenaRadius),
+            topRikishi = RikishiBody(state.topPlayer.id, centre - offset, rikishiRadius),
+            bottomRikishi = RikishiBody(state.bottomPlayer.id, centre + offset, rikishiRadius),
+        )
+    }
+
     init {
         scope.launch {
-            // distinctUntilChangedBy events prevents re-processing the same event list
-            // after onEventComplete removes an entry and re-emits an otherwise identical state.
             _state.distinctUntilChangedBy { it.events }
                 .collect { gameState ->
                     gameState.events.forEach { event ->
@@ -65,6 +84,52 @@ class GameViewModel(
                         }
                     }
                 }
+        }
+
+        // Subscribe to game loop world state → update render positions in GameState.
+        scope.launch {
+            gameLoop.worldState.filterNotNull().collect { world ->
+                _state.update { state ->
+                    state.copy(
+                        topRikishiPosition = world.topRikishi.position,
+                        bottomRikishiPosition = world.bottomRikishi.position,
+                        arenaCentre = world.arena.centre,
+                        arenaRadius = world.arena.radius,
+                        rikishiRadius = world.topRikishi.radius,
+                    )
+                }
+            }
+        }
+
+        // Subscribe to physics boundary events → apply damage (replaces onDamageDetected callback).
+        scope.launch {
+            gameLoop.physicsEvents.collect { event ->
+                when (event) {
+                    is PhysicsEvent.BoundaryViolation -> {
+                        val currentState = state.value
+                        val player = when (event.playerId) {
+                            currentState.topPlayer.id -> currentState.topPlayer
+                            currentState.bottomPlayer.id -> currentState.bottomPlayer
+                            else -> null
+                        } ?: return@collect
+
+                        val isTop = player.position == Position.TOP
+                        val alreadyResetting = if (isTop) isTopResettingAfterDamage.value
+                                               else isBottomResettingAfterDamage.value
+                        if (!alreadyResetting) {
+                            if (isTop) isTopResettingAfterDamage.value = true
+                            else isBottomResettingAfterDamage.value = true
+                            _state.update { s -> applyDamage(s, player) }
+                            currentInitialWorld(currentState)?.let { gameLoop.reset(it) }
+                            triggerResetThumbPositions()
+                            scope.launch(Dispatchers.Default) {
+                                soundAndVibration.gameOverFeedback()
+                            }
+                        }
+                    }
+                    is PhysicsEvent.RikishiCollision -> { /* future: collision sound/effect */ }
+                }
+            }
         }
     }
 
@@ -79,19 +144,37 @@ class GameViewModel(
     override fun onIntent(intent: Intent) {
         when (intent) {
             GameIntent.StartGame -> {
-                // Ignore rapid duplicate taps: only allow starting when not already mid-game.
                 if (state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver) return
                 startGameCountdownTimerJob?.cancel()
+                val newTopId = randomUUID()
+                val newBottomId = randomUUID()
                 _state.update { state ->
                     state.copy(
                         gameId = randomUUID(),
                         gameOverResult = null,
-                        topPlayer = Player(id = randomUUID(), position = Position.TOP),
-                        bottomPlayer = Player(id = randomUUID(), position = Position.BOTTOM),
+                        topPlayer = Player(id = newTopId, position = Position.TOP),
+                        bottomPlayer = Player(id = newBottomId, position = Position.BOTTOM),
                         ui = UI()
                     )
                 }
-                // Reset both Rikishi to their starting positions for the new game.
+                // Reset game loop world if arena has been measured.
+                state.value.let { s ->
+                    val centre = s.arenaCentre
+                    val arenaRadius = s.arenaRadius
+                    val rikishiRadius = s.rikishiRadius
+                    if (centre != null && arenaRadius != null && rikishiRadius != null) {
+                        val offset = Offset(0f, arenaRadius * 0.55f)
+                        gameLoop.stop()
+                        gameLoop.start(
+                            GameWorld(
+                                arena = ArenaWorld(centre, arenaRadius),
+                                topRikishi = RikishiBody(newTopId, centre - offset, rikishiRadius),
+                                bottomRikishi = RikishiBody(newBottomId, centre + offset, rikishiRadius),
+                            ),
+                            scope,
+                        )
+                    }
+                }
                 triggerResetThumbPositions()
                 invokeGameStartCountdownTimer()
             }
@@ -132,6 +215,7 @@ class GameViewModel(
                     if (isTop) isTopResettingAfterDamage.value = true
                     else isBottomResettingAfterDamage.value = true
                     _state.update { state -> applyDamage(state, intent.player) }
+                    currentInitialWorld(state.value)?.let { gameLoop.reset(it) }
                     // Only the first player to be damaged this cycle triggers the shared
                     // reset — both positions always reset together. The second player's
                     // damage is still applied to their health; they ride the same reset.
@@ -153,6 +237,25 @@ class GameViewModel(
             is GameIntent.ResetThumbsComplete -> {
                 isTopResettingAfterDamage.value = false
                 isBottomResettingAfterDamage.value = false
+            }
+
+            is GameIntent.ArenaMeasured -> {
+                val currentState = state.value
+                val rikishiStartOffset = Offset(0f, intent.arenaRadius * 0.55f)
+                val initialWorld = GameWorld(
+                    arena = ArenaWorld(centre = intent.centre, radius = intent.arenaRadius),
+                    topRikishi = RikishiBody(
+                        id = currentState.topPlayer.id,
+                        position = intent.centre - rikishiStartOffset,
+                        radius = intent.rikishiRadius,
+                    ),
+                    bottomRikishi = RikishiBody(
+                        id = currentState.bottomPlayer.id,
+                        position = intent.centre + rikishiStartOffset,
+                        radius = intent.rikishiRadius,
+                    ),
+                )
+                gameLoop.start(initialWorld, scope)
             }
         }
     }

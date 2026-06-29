@@ -28,6 +28,8 @@ import app.theme.playerOneColor
 import app.theme.playerTwoColor
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import feature.game.domain.input.InputCommand
+import feature.game.domain.input.InputSource
 import feature.game.joystick.RikishiJoystick
 import feature.game.joystick.ui.view.rememberJoystickState
 import feature.game.presentation.ui.Janome
@@ -92,7 +94,22 @@ fun GameScreen(
                         viewModel.onIntent(GameIntent.StartGame)
                     }
                 },
-                onMove = {},
+                onMove = { snapshot ->
+                    // Feed joystick input into the new game engine input channel.
+                    viewModel.gameLoop.submitInput(InputCommand(
+                        playerId = state.topPlayer.id,
+                        // Negate: top joystick is rotated 180° visually.
+                        velocityVector = androidx.compose.ui.geometry.Offset(
+                            x = -snapshot.position.x.minus(topJoystickState.center.x)
+                                .div(topJoystickState.radius)
+                                .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
+                            y = -snapshot.position.y.minus(topJoystickState.center.y)
+                                .div(topJoystickState.radius)
+                                .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
+                        ),
+                        source = InputSource.JOYSTICK,
+                    ))
+                },
                 modifier = Modifier
                     .weight(1f)
                     .padding(bottom = 4.dp)
@@ -112,9 +129,6 @@ fun GameScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f),
-                onDamageDetected = {
-                    viewModel.onIntent(GameIntent.PlayerDamaged(it))
-                },
                 onPressed = { isPressed, player ->
                     viewModel.onIntent(GameIntent.PressStateChanged(isPressed, player))
                 },
@@ -122,6 +136,7 @@ fun GameScreen(
                     Unit
                 },
                 resetThumbPositions = resetThumbPositions,
+                onInputCommand = { cmd -> viewModel.gameLoop.submitInput(cmd) },
                 onIntent = viewModel::onIntent,
                 topJoystickState = topJoystickState,
                 bottomJoystickState = bottomJoystickState,
@@ -144,7 +159,20 @@ fun GameScreen(
                         viewModel.onIntent(GameIntent.StartGame)
                     }
                 },
-                onMove = {},
+                onMove = { snapshot ->
+                    viewModel.gameLoop.submitInput(InputCommand(
+                        playerId = state.bottomPlayer.id,
+                        velocityVector = androidx.compose.ui.geometry.Offset(
+                            x = snapshot.position.x.minus(bottomJoystickState.center.x)
+                                .div(bottomJoystickState.radius)
+                                .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
+                            y = snapshot.position.y.minus(bottomJoystickState.center.y)
+                                .div(bottomJoystickState.radius)
+                                .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
+                        ),
+                        source = InputSource.JOYSTICK,
+                    ))
+                },
                 modifier = Modifier
                     .weight(1f)
                     .padding(top = 4.dp, bottom = 16.dp)
@@ -153,3 +181,5 @@ fun GameScreen(
     }
     IntroCountdownView(state = state.startCountdownViewState)
 }
+
+private const val JOYSTICK_INPUT_SCALE = 6f

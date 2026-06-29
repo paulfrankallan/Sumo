@@ -5,6 +5,7 @@ import app.sound.SoundAndVibrationFeedback
 import com.russhwolf.settings.ExperimentalSettingsApi
 import com.russhwolf.settings.Settings
 import feature.ads.AdManager
+import feature.game.domain.engine.GameLoop
 import feature.game.domain.usecase.ApplyDamage
 import feature.game.domain.usecase.UpdatePlayState
 import feature.settings.data.PrefsRepository
@@ -35,6 +36,7 @@ fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {
             singleOf(::ResetAllData)
             singleOf(::ApplyDamage)
             singleOf(::UpdatePlayState)
+            single { GameLoop() }
             single { SoundAndVibrationFeedback(get(), get()) }
             single { PrefsRepository(Settings()) }
             single { AppRepository(get()) }

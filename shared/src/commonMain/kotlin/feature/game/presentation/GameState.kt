@@ -1,5 +1,6 @@
 package feature.game.presentation
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import feature.common.events.Event
 import feature.common.presentation.Intent
@@ -24,7 +25,13 @@ data class GameState(
     val gameOverResult: GameOverResult? = null,
     val playState: PlayState = PlayState.NEW,
     val startCountdownViewState: StartCountdownViewState? = null,
-    val ui: UI = UI()
+    val ui: UI = UI(),
+    // Render positions from the game loop — null until the arena is measured.
+    val topRikishiPosition: Offset? = null,
+    val bottomRikishiPosition: Offset? = null,
+    val arenaCentre: Offset? = null,
+    val arenaRadius: Float? = null,
+    val rikishiRadius: Float? = null,
 ) : ViewState {
     val isGameOver: Boolean
         get() = gameOverResult != null
@@ -63,4 +70,10 @@ sealed class GameIntent : Intent {
     data class PlayerDamaged(val player: Player) : GameIntent()
     data class PressStateChanged(val isPressed: Boolean, val player: Player) : GameIntent()
     data object ResetThumbsComplete : GameIntent()
+    /** Arena dimensions measured by the UI — initialises the game loop world. */
+    data class ArenaMeasured(
+        val centre: Offset,
+        val arenaRadius: Float,
+        val rikishiRadius: Float,
+    ) : GameIntent()
 }

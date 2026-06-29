@@ -41,6 +41,8 @@ fun Rikishi(
     thumbOffsetPosition: Offset,
     isOutOfBounds: Boolean,
     updateThumbOffsetPosition: (Offset) -> Unit = {},
+    /** Called with the drag delta — parallel input path for the new game engine. */
+    onDragDelta: (Offset) -> Unit = {},
     onPressed: (Boolean) -> Unit,
     onReleased: (Boolean) -> Unit,
     rotationDegrees: Float = 0f,
@@ -101,10 +103,7 @@ fun Rikishi(
                         hasReleased.value = true
                     }
                     updateThumbOffsetPosition(touchPosition - touchOffset.value)
-                    // Update so each event receives only the incremental delta, not the
-                    // accumulated total from drag start. Without this, the drag amount
-                    // grows unboundedly, causing the Rikishi to leap back out of bounds
-                    // immediately after every damage reset.
+                    onDragDelta(touchPosition - touchOffset.value)
                     touchOffset.value = touchPosition
                 }
             }

@@ -8,6 +8,7 @@ import androidx.compose.ui.draw.paint
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import feature.common.presentation.Intent
+import feature.game.domain.input.InputCommand
 import feature.game.joystick.ui.state.JoystickState
 import feature.game.presentation.GameState
 import feature.game.presentation.model.Player
@@ -19,11 +20,11 @@ import sumo.shared.generated.resources.janome
 fun Janome(
     state: GameState,
     modifier: Modifier = Modifier,
-    onDamageDetected: (Player) -> Unit,
     onPressed: (Boolean, Player) -> Unit,
     onReleased: (player: Player) -> Unit,
     onIntent: (Intent) -> Unit,
     resetThumbPositions: Boolean,
+    onInputCommand: (InputCommand) -> Unit = {},
     topJoystickState: JoystickState? = null,
     bottomJoystickState: JoystickState? = null,
 ) {
@@ -35,11 +36,11 @@ fun Janome(
     ) {
         Dohyo(
             state = state,
-            onDamageDetected = onDamageDetected,
             onPressed = onPressed,
             onReleased = onReleased,
             onIntent = onIntent,
             resetThumbPositions = resetThumbPositions,
+            onInputCommand = onInputCommand,
             topJoystickState = topJoystickState,
             bottomJoystickState = bottomJoystickState,
         )

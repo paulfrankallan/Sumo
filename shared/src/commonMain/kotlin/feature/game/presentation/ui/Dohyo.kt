@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -19,14 +17,12 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalDensity
 import app.LocalScreen
 import feature.common.presentation.Intent
-import feature.game.domain.logic.ArenaPhysics.calculatePushVector
-import feature.game.domain.logic.ArenaPhysics.doThumbSpotsOverlap
-import feature.game.domain.logic.ArenaPhysics.isOutOfBounds
+import feature.game.domain.input.InputCommand
+import feature.game.domain.input.InputSource
+import feature.game.joystick.ui.state.JoystickState
 import feature.game.presentation.GameIntent
 import feature.game.presentation.GameState
-import feature.game.presentation.PlayState
 import feature.game.presentation.model.Player
-import feature.game.joystick.ui.state.JoystickState
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
@@ -41,272 +37,154 @@ import kotlin.math.sin
 fun Dohyo(
     state: GameState,
     modifier: Modifier = Modifier,
-    onDamageDetected: (Player) -> Unit,
     onPressed: (Boolean, Player) -> Unit,
     onReleased: (player: Player) -> Unit,
     onIntent: (Intent) -> Unit,
     resetThumbPositions: Boolean,
+    onInputCommand: (InputCommand) -> Unit = {},
     topJoystickState: JoystickState? = null,
     bottomJoystickState: JoystickState? = null,
 ) {
     val density = LocalDensity.current
-    val circleStroke = remember { 5f }
-    val circleCenter = remember { mutableStateOf(Offset.Zero) }
-    val circleDiameter = remember { mutableStateOf(0f) }
-    val circleRadius = remember { mutableStateOf(0f) }
-    val topThumbPosition = remember { mutableStateOf(Offset.Zero) }
-    val bottomThumbPosition = remember { mutableStateOf(Offset.Zero) }
-    val screenWidth = LocalScreen.current.width
-    val spotDiameter = remember { screenWidth * 0.20f }
-    val spotDiameterPx = with(density) { spotDiameter.toPx() }
-    val spotRadiusPx = spotDiameterPx / 2
-    val isTopThumbOutOfBounds = remember { mutableStateOf(false) }
-    val isBottomThumbOutOfBounds = remember { mutableStateOf(false) }
-    // Damage gate flags — live in Dohyo alongside the bounds state so they are
-    // cleared atomically with the position reset, preventing any rapid-fire repeat
-    // damage calls before the LaunchedEffect reset propagates back to the ViewModel.
-    val isTopDamageGated = remember { mutableStateOf(false) }
-    val isBottomDamageGated = remember { mutableStateOf(false) }
-    val isOutOfBounds = derivedStateOf {
-        isTopThumbOutOfBounds.value || isBottomThumbOutOfBounds.value
-    }
     val currentState = rememberUpdatedState(state)
+    val circleStroke = remember { 5f }
+    val arenaMeasuredSent = remember { mutableStateOf(false) }
+    val circleCenter = remember { mutableStateOf(Offset.Zero) }
+    val circleRadius = remember { mutableStateOf(0f) }
+    val screenWidth = LocalScreen.current.width
+    val spotDiameter = remember(screenWidth) { screenWidth * 0.20f }
+    val spotDiameterPx = with(density) { spotDiameter.toPx() }
+    val spotRadiusPx = spotDiameterPx / 2f
 
-    val topRotationDegrees = remember {
-        derivedStateOf {
-            val topCenter = Offset(
-                topThumbPosition.value.x + spotRadiusPx,
-                topThumbPosition.value.y + spotRadiusPx
-            )
-            val bottomCenter = Offset(
-                bottomThumbPosition.value.x + spotRadiusPx,
-                bottomThumbPosition.value.y + spotRadiusPx
-            )
+    val topThumbPosition = state.topRikishiPosition?.let {
+        Offset(it.x - spotRadiusPx, it.y - spotRadiusPx)
+    } ?: Offset.Zero
+    val bottomThumbPosition = state.bottomRikishiPosition?.let {
+        Offset(it.x - spotRadiusPx, it.y - spotRadiusPx)
+    } ?: Offset.Zero
+
+    val rotationDegrees = remember(state.topRikishiPosition, state.bottomRikishiPosition) {
+        val topCenter = state.topRikishiPosition
+        val bottomCenter = state.bottomRikishiPosition
+        if (topCenter == null || bottomCenter == null) {
+            0f
+        } else {
             val dx = bottomCenter.x - topCenter.x
             val dy = bottomCenter.y - topCenter.y
             if (dx == 0f && dy == 0f) 0f
             else (atan2(-dx.toDouble(), dy.toDouble()) * 180.0 / PI).toFloat()
         }
     }
-    val bottomRotationDegrees = remember {
-        derivedStateOf { topRotationDegrees.value + 180f }
-    }
 
-    val moveTopRikishi: (Offset) -> Unit = moveTop@{ dragAmount ->
-        if (currentState.value.playState != PlayState.IN_PROGRESS) return@moveTop
-        val newSpotPosition = Offset(
-            topThumbPosition.value.x + dragAmount.x,
-            topThumbPosition.value.y + dragAmount.y
-        )
-        val wouldCrossTawara = isOutOfBounds(newSpotPosition, circleCenter.value, circleRadius.value, spotRadiusPx)
-        if (isDamageDetected(currentState.value, isTopThumbOutOfBounds.value || wouldCrossTawara)) {
-            isTopThumbOutOfBounds.value = true
-            if (!isTopDamageGated.value) {
-                isTopDamageGated.value = true
-                onDamageDetected(currentState.value.topPlayer)
-            }
-            return@moveTop
-        }
-        if (doThumbSpotsOverlap(
-                firstThumbCenter = newSpotPosition,
-                secondThumbCenter = bottomThumbPosition.value,
-                firstThumbRadiusPx = spotRadiusPx,
-                secondThumbRadiusPx = spotRadiusPx
-            )
-        ) {
-            val pushVector = calculatePushVector(
-                movingSpotCenter = newSpotPosition,
-                stationarySpotCenter = bottomThumbPosition.value,
-                dragAmount = dragAmount
-            )
-            val pushedBottomPosition = bottomThumbPosition.value + pushVector
-            if (isDamageDetected(currentState.value,
-                    isOutOfBounds(pushedBottomPosition, circleCenter.value, circleRadius.value, spotRadiusPx))) {
-                isBottomThumbOutOfBounds.value = true
-                if (!isBottomDamageGated.value) {
-                    isBottomDamageGated.value = true
-                    onDamageDetected(currentState.value.bottomPlayer)
-                }
-                return@moveTop
-            }
-            bottomThumbPosition.value = pushedBottomPosition
-        } else {
-            topThumbPosition.value = newSpotPosition
-        }
-        updateOutOfBoundsStates(
-            topThumbPosition = topThumbPosition.value,
-            bottomThumbPosition = bottomThumbPosition.value,
-            circleCenter = circleCenter.value,
-            circleRadius = circleRadius.value,
-            spotRadiusPx = spotRadiusPx,
-            isTopThumbOutOfBounds = isTopThumbOutOfBounds,
-            isBottomThumbOutOfBounds = isBottomThumbOutOfBounds
-        )
-    }
-
-    val moveBottomRikishi: (Offset) -> Unit = moveBottom@{ dragAmount ->
-        if (currentState.value.playState != PlayState.IN_PROGRESS) return@moveBottom
-        val newSpotPosition = Offset(
-            bottomThumbPosition.value.x + dragAmount.x,
-            bottomThumbPosition.value.y + dragAmount.y
-        )
-        val wouldCrossTawara = isOutOfBounds(newSpotPosition, circleCenter.value, circleRadius.value, spotRadiusPx)
-        if (isDamageDetected(currentState.value, isBottomThumbOutOfBounds.value || wouldCrossTawara)) {
-            isBottomThumbOutOfBounds.value = true
-            if (!isBottomDamageGated.value) {
-                isBottomDamageGated.value = true
-                onDamageDetected(currentState.value.bottomPlayer)
-            }
-            return@moveBottom
-        }
-        if (doThumbSpotsOverlap(
-                firstThumbCenter = newSpotPosition,
-                secondThumbCenter = topThumbPosition.value,
-                firstThumbRadiusPx = spotRadiusPx,
-                secondThumbRadiusPx = spotRadiusPx
-            )
-        ) {
-            val pushVector = calculatePushVector(
-                movingSpotCenter = newSpotPosition,
-                stationarySpotCenter = topThumbPosition.value,
-                dragAmount = dragAmount
-            )
-            val pushedTopPosition = topThumbPosition.value + pushVector
-            if (isDamageDetected(currentState.value,
-                    isOutOfBounds(pushedTopPosition, circleCenter.value, circleRadius.value, spotRadiusPx))) {
-                isTopThumbOutOfBounds.value = true
-                if (!isTopDamageGated.value) {
-                    isTopDamageGated.value = true
-                    onDamageDetected(currentState.value.topPlayer)
-                }
-                return@moveBottom
-            }
-            topThumbPosition.value = pushedTopPosition
-        } else {
-            bottomThumbPosition.value = newSpotPosition
-        }
-        updateOutOfBoundsStates(
-            topThumbPosition = topThumbPosition.value,
-            bottomThumbPosition = bottomThumbPosition.value,
-            circleCenter = circleCenter.value,
-            circleRadius = circleRadius.value,
-            spotRadiusPx = spotRadiusPx,
-            isTopThumbOutOfBounds = isTopThumbOutOfBounds,
-            isBottomThumbOutOfBounds = isBottomThumbOutOfBounds
-        )
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-    ) {
+    Box(modifier = modifier.fillMaxSize()) {
         val tawaraBalesPainter = painterResource(resource = Res.drawable.tawara)
         val shikiriSenPainter = painterResource(resource = Res.drawable.shikiri_sen)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = size.width
             val canvasHeight = size.height
-            circleCenter.value = Offset(canvasWidth / 2, canvasHeight / 2)
-            circleDiameter.value = canvasWidth * 0.85f // 88% width of canvas.
-            circleRadius.value = circleDiameter.value / 2
-            val imageSize =
-                Size(
-                    width = circleDiameter.value + 125,
-                    height = circleDiameter.value + 125
+            circleCenter.value = Offset(canvasWidth / 2f, canvasHeight / 2f)
+            circleRadius.value = canvasWidth * 0.425f
+
+            if (!arenaMeasuredSent.value && circleRadius.value > 0f) {
+                arenaMeasuredSent.value = true
+                onIntent(
+                    GameIntent.ArenaMeasured(
+                        centre = circleCenter.value,
+                        arenaRadius = circleRadius.value,
+                        rikishiRadius = spotRadiusPx,
+                    )
                 )
-            drawCircle( // Arena perimeter
-                color = if (isOutOfBounds.value) {
-//                    Color(0xFF8B0000) // For debugging
-                    Color.Transparent
-                } else {
-//                    Color(0xFF8B0000) // For debugging
-                    Color.Transparent
-                },
+            }
+
+            val imageSize = Size(
+                width = circleRadius.value * 2f + 125f,
+                height = circleRadius.value * 2f + 125f,
+            )
+
+            drawCircle(
+                color = Color.Transparent,
                 center = circleCenter.value,
                 radius = circleRadius.value,
                 style = Stroke(width = circleStroke)
             )
+
             with(tawaraBalesPainter) {
                 withTransform({
-                    // Calculate the top-left position based on the circle center and the image size
-                    val topLeftX = circleCenter.value.x - (imageSize.width / 2)
-                    val topLeftY = circleCenter.value.y - (imageSize.height / 2)
-                    translate(topLeftX, topLeftY)
-                }) {
-                    draw(
-                        size = imageSize,
+                    translate(
+                        circleCenter.value.x - (imageSize.width / 2f),
+                        circleCenter.value.y - (imageSize.height / 2f),
                     )
+                }) {
+                    draw(size = imageSize)
                 }
             }
-            val shikiriSenWidth = circleDiameter.value * SHIKIRI_SEN_WIDTH_RATIO
+
+            val shikiriSenWidth = circleRadius.value * 2f * SHIKIRI_SEN_WIDTH_RATIO
             val shikiriSenHeight = shikiriSenWidth / SHIKIRI_SEN_ASPECT_RATIO
-            val shikiriSenSeparation = circleDiameter.value * SHIKIRI_SEN_SEPARATION_RATIO
+            val shikiriSenSeparation = circleRadius.value * 2f * SHIKIRI_SEN_SEPARATION_RATIO
             val shikiriSenSize = Size(shikiriSenWidth, shikiriSenHeight)
             val topShikiriTopLeft = Offset(
-                x = circleCenter.value.x - (shikiriSenWidth / 2),
-                y = circleCenter.value.y - (shikiriSenSeparation / 2) - (shikiriSenHeight / 2)
+                x = circleCenter.value.x - (shikiriSenWidth / 2f),
+                y = circleCenter.value.y - (shikiriSenSeparation / 2f) - (shikiriSenHeight / 2f),
             )
             val bottomShikiriTopLeft = Offset(
-                x = circleCenter.value.x - (shikiriSenWidth / 2),
-                y = circleCenter.value.y + (shikiriSenSeparation / 2) - (shikiriSenHeight / 2)
+                x = circleCenter.value.x - (shikiriSenWidth / 2f),
+                y = circleCenter.value.y + (shikiriSenSeparation / 2f) - (shikiriSenHeight / 2f),
             )
             with(shikiriSenPainter) {
-                withTransform({
-                    translate(topShikiriTopLeft.x, topShikiriTopLeft.y)
-                }) {
+                withTransform({ translate(topShikiriTopLeft.x, topShikiriTopLeft.y) }) {
                     draw(size = shikiriSenSize)
                 }
-                withTransform({
-                    translate(bottomShikiriTopLeft.x, bottomShikiriTopLeft.y)
-                }) {
+                withTransform({ translate(bottomShikiriTopLeft.x, bottomShikiriTopLeft.y) }) {
                     draw(size = shikiriSenSize)
                 }
             }
         }
-        // Top ThumbView
+
         Rikishi(
-            thumbOffsetPosition = topThumbPosition.value,
-            isOutOfBounds = isTopThumbOutOfBounds.value,
-            updateThumbOffsetPosition = { dragAmount -> moveTopRikishi(dragAmount) },
+            thumbOffsetPosition = topThumbPosition,
+            isOutOfBounds = false,
+            onDragDelta = { delta ->
+                onInputCommand(
+                    InputCommand(
+                        playerId = currentState.value.topPlayer.id,
+                        velocityVector = delta,
+                        source = InputSource.DIRECT_DRAG,
+                    )
+                )
+            },
             spotForegroundColor = state.ui.topThumbView.foregroundColor,
             spotForegroundImage = state.ui.topThumbView.foregroundImage,
-            onPressed = {
-                onPressed(it, currentState.value.topPlayer)
-            },
+            onPressed = { onPressed(it, currentState.value.topPlayer) },
             onReleased = { onReleased(currentState.value.topPlayer) },
             spotDiameter = spotDiameter,
-            rotationDegrees = topRotationDegrees.value
+            rotationDegrees = rotationDegrees
         )
-        // Bottom ThumbView
+
         Rikishi(
-            thumbOffsetPosition = bottomThumbPosition.value,
-            isOutOfBounds = isBottomThumbOutOfBounds.value,
-            updateThumbOffsetPosition = { dragAmount -> moveBottomRikishi(dragAmount) },
+            thumbOffsetPosition = bottomThumbPosition,
+            isOutOfBounds = false,
+            onDragDelta = { delta ->
+                onInputCommand(
+                    InputCommand(
+                        playerId = currentState.value.bottomPlayer.id,
+                        velocityVector = delta,
+                        source = InputSource.DIRECT_DRAG,
+                    )
+                )
+            },
             spotForegroundColor = state.ui.bottomThumbView.foregroundColor,
             spotForegroundImage = state.ui.bottomThumbView.foregroundImage,
-            onPressed = {
-                onPressed(it, currentState.value.bottomPlayer)
-            },
+            onPressed = { onPressed(it, currentState.value.bottomPlayer) },
             onReleased = { onReleased(currentState.value.bottomPlayer) },
             spotDiameter = spotDiameter,
-            rotationDegrees = bottomRotationDegrees.value
+            rotationDegrees = rotationDegrees + 180f
         )
+
         GameOverView(state = currentState.value)
     }
 
     LaunchedEffect(resetThumbPositions) {
-        // Clear damage gates first so no damage fires during position restoration.
-        isTopDamageGated.value = false
-        isBottomDamageGated.value = false
-        isTopThumbOutOfBounds.value = false
-        topThumbPosition.value = Offset(
-            circleCenter.value.x - spotRadiusPx,
-            (circleCenter.value.y - spotRadiusPx) - spotDiameterPx
-        )
-        isBottomThumbOutOfBounds.value = false
-        bottomThumbPosition.value = Offset(
-            circleCenter.value.x - spotRadiusPx,
-            (circleCenter.value.y - spotRadiusPx) + spotDiameterPx
-        )
         onIntent(GameIntent.ResetThumbsComplete)
     }
 
@@ -315,13 +193,16 @@ fun Dohyo(
         while (true) {
             if (topJoystickState.isValid) {
                 val angle = atan2(topJoystickState.offset.y, topJoystickState.offset.x)
-                // Negate both axes: the top joystick is rotated 180° so its screen-space
-                // gestures are inverted relative to the direction the top Rikishi should move.
-                val dragAmount = Offset(
-                    x = -cos(angle) * topJoystickState.strength * JOYSTICK_MOVEMENT_SPEED_PX,
-                    y = -sin(angle) * topJoystickState.strength * JOYSTICK_MOVEMENT_SPEED_PX
+                onInputCommand(
+                    InputCommand(
+                        playerId = currentState.value.topPlayer.id,
+                        velocityVector = Offset(
+                            x = -cos(angle) * topJoystickState.strength * JOYSTICK_MOVEMENT_SPEED_PX,
+                            y = -sin(angle) * topJoystickState.strength * JOYSTICK_MOVEMENT_SPEED_PX,
+                        ),
+                        source = InputSource.JOYSTICK,
+                    )
                 )
-                moveTopRikishi(dragAmount)
             }
             delay(JOYSTICK_TICK_MS)
         }
@@ -332,45 +213,20 @@ fun Dohyo(
         while (true) {
             if (bottomJoystickState.isValid) {
                 val angle = atan2(bottomJoystickState.offset.y, bottomJoystickState.offset.x)
-                val dragAmount = Offset(
-                    x = cos(angle) * bottomJoystickState.strength * JOYSTICK_MOVEMENT_SPEED_PX,
-                    y = sin(angle) * bottomJoystickState.strength * JOYSTICK_MOVEMENT_SPEED_PX
+                onInputCommand(
+                    InputCommand(
+                        playerId = currentState.value.bottomPlayer.id,
+                        velocityVector = Offset(
+                            x = cos(angle) * bottomJoystickState.strength * JOYSTICK_MOVEMENT_SPEED_PX,
+                            y = sin(angle) * bottomJoystickState.strength * JOYSTICK_MOVEMENT_SPEED_PX,
+                        ),
+                        source = InputSource.JOYSTICK,
+                    )
                 )
-                moveBottomRikishi(dragAmount)
             }
             delay(JOYSTICK_TICK_MS)
         }
     }
-}
-
-private fun isDamageDetected(
-    state: GameState,
-    isThumbOutOfBounds: Boolean
-): Boolean {
-    return isThumbOutOfBounds && state.gameOverResult == null
-}
-
-private fun updateOutOfBoundsStates(
-    topThumbPosition: Offset,
-    bottomThumbPosition: Offset,
-    circleCenter: Offset,
-    circleRadius: Float,
-    spotRadiusPx: Float,
-    isTopThumbOutOfBounds: MutableState<Boolean>,
-    isBottomThumbOutOfBounds: MutableState<Boolean>
-) {
-    isTopThumbOutOfBounds.value = isOutOfBounds(
-        spotPosition = topThumbPosition,
-        circleCenter = circleCenter,
-        circleRadius = circleRadius,
-        spotRadiusPx = spotRadiusPx
-    )
-    isBottomThumbOutOfBounds.value = isOutOfBounds(
-        spotPosition = bottomThumbPosition,
-        circleCenter = circleCenter,
-        circleRadius = circleRadius,
-        spotRadiusPx = spotRadiusPx
-    )
 }
 
 private const val SHIKIRI_SEN_ASPECT_RATIO = 749f / 65f
