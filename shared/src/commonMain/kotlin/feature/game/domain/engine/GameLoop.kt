@@ -1,6 +1,7 @@
 package feature.game.domain.engine
 
 import feature.game.domain.input.InputCommand
+import feature.game.domain.input.InputSource
 import feature.game.domain.model.GameWorld
 import feature.game.domain.physics.PhysicsEngine
 import feature.game.domain.physics.PhysicsEvent
@@ -45,8 +46,13 @@ class GameLoop(
 
     private var loopJob: Job? = null
 
+    // Player IDs whose DIRECT_DRAG commands should be discarded (set during damage reset,
+    // cleared when the drag gesture ends so the position can't be pushed back immediately).
+    private val dragBlockedPlayers = mutableSetOf<String>()
+
     /** Submit an input command from any source. Non-blocking, thread-safe. */
     fun submitInput(command: InputCommand) {
+        if (command.source == InputSource.DIRECT_DRAG && command.playerId in dragBlockedPlayers) return
         inputChannel.trySend(command)
     }
 
@@ -56,6 +62,7 @@ class GameLoop(
      */
     fun start(initialWorld: GameWorld, scope: CoroutineScope) {
         loopJob?.cancel()
+        dragBlockedPlayers.clear()
         _worldState.value = initialWorld
         loopJob = scope.launch {
             var world = initialWorld
@@ -88,6 +95,20 @@ class GameLoop(
     fun reset(newWorld: GameWorld) {
         drainInputChannel() // discard stale commands
         _worldState.value = newWorld
+    }
+
+    /**
+     * Prevents DIRECT_DRAG commands for [playerId] from reaching the physics engine.
+     * Call after a damage-reset when the player was actively dragging, so the in-flight
+     * drag gesture can't push the Rikishi straight back to the boundary.
+     */
+    fun blockDragForPlayer(playerId: String) {
+        dragBlockedPlayers.add(playerId)
+    }
+
+    /** Lifts the drag block set by [blockDragForPlayer]. Call when the drag gesture ends. */
+    fun unblockDragForPlayer(playerId: String) {
+        dragBlockedPlayers.remove(playerId)
     }
 
     /** Drains all currently-queued input commands without suspending. */

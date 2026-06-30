@@ -121,6 +121,12 @@ class GameViewModel(
                             else isBottomResettingAfterDamage.value = true
                             _state.update { s -> applyDamage(s, player) }
                             currentInitialWorld(currentState)?.let { gameLoop.reset(it) }
+                            // If the player was actively dragging when they hit the boundary,
+                            // block their drag input until the gesture ends — prevents the
+                            // in-flight drag from immediately pushing the Rikishi back out.
+                            if (player.thumbState == ThumbState.PRESSED) {
+                                gameLoop.blockDragForPlayer(player.id)
+                            }
                             triggerResetThumbPositions()
                             scope.launch(Dispatchers.Default) {
                                 soundAndVibration.gameOverFeedback()
@@ -216,6 +222,10 @@ class GameViewModel(
                     else isBottomResettingAfterDamage.value = true
                     _state.update { state -> applyDamage(state, intent.player) }
                     currentInitialWorld(state.value)?.let { gameLoop.reset(it) }
+                    val currentPlayer = if (isTop) state.value.topPlayer else state.value.bottomPlayer
+                    if (currentPlayer.thumbState == ThumbState.PRESSED) {
+                        gameLoop.blockDragForPlayer(intent.player.id)
+                    }
                     // Only the first player to be damaged this cycle triggers the shared
                     // reset — both positions always reset together. The second player's
                     // damage is still applied to their health; they ride the same reset.
@@ -226,6 +236,10 @@ class GameViewModel(
                         soundAndVibration.gameOverFeedback()
                     }
                 }
+            }
+
+            is GameIntent.DragEnded -> {
+                gameLoop.unblockDragForPlayer(intent.player.id)
             }
 
             is GameIntent.PressStateChanged -> {

@@ -43,6 +43,7 @@ fun Rikishi(
     updateThumbOffsetPosition: (Offset) -> Unit = {},
     /** Called with the drag delta — parallel input path for the new game engine. */
     onDragDelta: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
     onPressed: (Boolean) -> Unit,
     onReleased: (Boolean) -> Unit,
     rotationDegrees: Float = 0f,
@@ -58,8 +59,6 @@ fun Rikishi(
     val intOffset = remember { mutableStateOf(IntOffset(0, 0)) }
     val circleCenter = Offset(spotRadiusPx, spotRadiusPx)
     val isDragging = remember { mutableStateOf(false) }
-    val touchOffset = remember { mutableStateOf(Offset.Zero) }
-    val hasReleased = remember { mutableStateOf(false) }
 
     Canvas(
         modifier = Modifier
@@ -82,29 +81,32 @@ fun Rikishi(
 //            }
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { offset ->
+                    onDragStart = { _ ->
                         isDragging.value = true
                         onPressed(true)
-                        // offset is local pointer position inside the ThumbView's Canvas in newer Compose versions
-                        // store the local touch offset (not converted by thumb position)
-                        touchOffset.value = offset
-                        hasReleased.value = false
                     },
                     onDragEnd = {
                         isDragging.value = false
                         onPressed(false)
                         onReleased(true)
-                    }
-                ) { change, _ ->
-                    change.consume()
-                    val touchPosition = change.position
-                    if (isTouchOutsideCircle(touchPosition, circleCenter, spotRadiusPx)) {
+                        onDragEnd()
+                    },
+                    onDragCancel = {
+                        isDragging.value = false
+                        onPressed(false)
                         onReleased(true)
-                        hasReleased.value = true
+                        onDragEnd()
                     }
-                    updateThumbOffsetPosition(touchPosition - touchOffset.value)
-                    onDragDelta(touchPosition - touchOffset.value)
-                    touchOffset.value = touchPosition
+                ) { change, dragAmount ->
+                    change.consume()
+                    // dragAmount is the screen-space delta — unaffected by the composable's
+                    // own position changing (avoids the feedback-loop wobble that occurs when
+                    // using change.position in local coordinates).
+                    if (isTouchOutsideCircle(change.position, circleCenter, spotRadiusPx)) {
+                        onReleased(true)
+                    }
+                    updateThumbOffsetPosition(dragAmount)
+                    onDragDelta(dragAmount)
                 }
             }
             .pointerInput(Unit) {

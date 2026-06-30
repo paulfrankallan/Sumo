@@ -153,6 +153,7 @@ fun Dohyo(
                     )
                 )
             },
+            onDragEnd = { onIntent(GameIntent.DragEnded(currentState.value.topPlayer)) },
             spotForegroundColor = state.ui.topThumbView.foregroundColor,
             spotForegroundImage = state.ui.topThumbView.foregroundImage,
             onPressed = { onPressed(it, currentState.value.topPlayer) },
@@ -173,6 +174,7 @@ fun Dohyo(
                     )
                 )
             },
+            onDragEnd = { onIntent(GameIntent.DragEnded(currentState.value.bottomPlayer)) },
             spotForegroundColor = state.ui.bottomThumbView.foregroundColor,
             spotForegroundImage = state.ui.bottomThumbView.foregroundImage,
             onPressed = { onPressed(it, currentState.value.bottomPlayer) },

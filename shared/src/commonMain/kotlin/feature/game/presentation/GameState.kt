@@ -70,6 +70,7 @@ sealed class GameIntent : Intent {
     data class PlayerDamaged(val player: Player) : GameIntent()
     data class PressStateChanged(val isPressed: Boolean, val player: Player) : GameIntent()
     data object ResetThumbsComplete : GameIntent()
+    data class DragEnded(val player: Player) : GameIntent()
     /** Arena dimensions measured by the UI — initialises the game loop world. */
     data class ArenaMeasured(
         val centre: Offset,
