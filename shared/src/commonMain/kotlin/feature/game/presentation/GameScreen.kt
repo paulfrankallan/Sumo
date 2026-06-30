@@ -1,5 +1,6 @@
 package feature.game.presentation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +38,8 @@ import feature.game.presentation.ui.IntroCountdownView
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.sand_medium
+import sumo.shared.generated.resources.sand_dark
+import sumo.shared.generated.resources.shikiri_sen
 
 @Composable
 fun GameScreen(
@@ -72,7 +74,7 @@ fun GameScreen(
         modifier = Modifier
             .fillMaxSize()
             .paint(
-                painter = painterResource(Res.drawable.sand_medium),
+                painter = painterResource(Res.drawable.sand_dark),
                 contentScale = ContentScale.FillBounds
             ),
     ) {
@@ -82,9 +84,19 @@ fun GameScreen(
             modifier = Modifier.fillMaxSize().run {
                 val insets = WindowInsets.safeContent.asPaddingValues()
                 val symmetricPadding = max(insets.calculateTopPadding(), insets.calculateBottomPadding())
-                padding(top = symmetricPadding)
+                padding(vertical = symmetricPadding)
             }
         ) {
+            // Sandbag strip — rotated 180° to face the top player's direction.
+            Image(
+                painter = painterResource(Res.drawable.shikiri_sen),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(SANDBAG_ASPECT_RATIO)
+                    .rotate(180f),
+                contentScale = ContentScale.FillBounds,
+            )
             RikishiJoystick(
                 state = topJoystickState,
                 primaryColor = playerTwoColor,
@@ -112,7 +124,7 @@ fun GameScreen(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .padding(bottom = 4.dp)
+                    .padding(top = 8.dp)
                     .rotate(180f)
             )
             HealthBar(
@@ -175,7 +187,16 @@ fun GameScreen(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .padding(top = 4.dp, bottom = 16.dp)
+                    .padding(bottom = 8.dp)
+            )
+            // Sandbag strip at the bottom edge.
+            Image(
+                painter = painterResource(Res.drawable.shikiri_sen),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(SANDBAG_ASPECT_RATIO),
+                contentScale = ContentScale.FillBounds,
             )
         }
     }
@@ -183,3 +204,4 @@ fun GameScreen(
 }
 
 private const val JOYSTICK_INPUT_SCALE = 6f
+private const val SANDBAG_ASPECT_RATIO = 749f / 65f

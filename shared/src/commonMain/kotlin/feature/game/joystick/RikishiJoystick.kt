@@ -1,24 +1,31 @@
 package feature.game.joystick
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import feature.game.joystick.core.control.BackgroundType
+import androidx.compose.ui.layout.ContentScale
 import feature.game.joystick.core.control.DirectionType
 import feature.game.joystick.ui.scope.draw.shapes.ArcDrawDefaults
 import feature.game.joystick.ui.scope.draw.shapes.DrawMode
 import feature.game.joystick.ui.scope.draw.shapes.drawArc
 import feature.game.joystick.ui.state.JoystickMoveListener
 import feature.game.joystick.ui.state.JoystickState
-import feature.game.joystick.ui.view.VirtualJoystick
+import feature.game.joystick.ui.view.BaseVirtualJoystick
+import feature.game.joystick.ui.view.JoystickCanvas
 import feature.game.joystick.ui.view.rememberJoystickState
+import org.jetbrains.compose.resources.painterResource
+import sumo.shared.generated.resources.Res
+import sumo.shared.generated.resources.controller
 
 /**
  * A joystick composable tailored for controlling a Rikishi in the Sumo game.
  *
- * Uses an Arc drawer with [DirectionType.Complete] and [DrawMode.Normal], coloured to match
- * the owning player's theme (blue for top player, red for bottom player).
+ * Uses the controller.png asset as the background, with an Arc drawn on top to
+ * indicate joystick direction. The top-player instance is rotated 180° at the call
+ * site (see [feature.game.presentation.GameScreen]) so it faces the correct direction.
  *
  * @param modifier Modifier applied to the joystick.
  * @param state The joystick state. Defaults to a new [JoystickState] with [DirectionType.Complete].
@@ -55,14 +62,21 @@ fun RikishiJoystick(
         mode = DrawMode.Normal,
     )
 
-    VirtualJoystick(
+    BaseVirtualJoystick(
         modifier = modifier,
         state = state,
-        backgroundType = BackgroundType.Default,
         onMoveStart = onMoveStart,
         onMove = onMove,
         onMoveEnd = onMoveEnd,
     ) {
-        drawArc(arcProperties)
+        Image(
+            painter = painterResource(Res.drawable.controller),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit,
+        )
+        JoystickCanvas {
+            drawArc(arcProperties)
+        }
     }
 }
