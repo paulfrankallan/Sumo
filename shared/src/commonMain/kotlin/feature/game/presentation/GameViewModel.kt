@@ -14,7 +14,6 @@ import feature.common.presentation.CMViewModel
 import feature.common.presentation.Intent
 import feature.common.presentation.NavigationEvent
 import feature.game.domain.engine.GameLoop
-import feature.game.domain.input.InputCommand
 import feature.game.domain.model.ArenaWorld
 import feature.game.domain.model.GameWorld
 import feature.game.domain.model.RikishiBody
@@ -34,10 +33,11 @@ import org.jetbrains.compose.resources.DrawableResource
 import platform.RES_ID_MUSIC_3
 import platform.randomUUID
 import sumo.shared.generated.resources.Res
+import sumo.shared.generated.resources.loser
 import sumo.shared.generated.resources.rikishi_blue
 import sumo.shared.generated.resources.rikishi_red
-import sumo.shared.generated.resources.loser
 import sumo.shared.generated.resources.winner
+import kotlin.time.Duration.Companion.milliseconds
 
 class GameViewModel(
     private val applyDamage: ApplyDamage,
@@ -306,13 +306,13 @@ class GameViewModel(
 
     private fun invokeGameStartCountdownTimer() {
         startGameCountdownTimerJob = CountUpTimer()(
-            startDelayMillis = 500L,
-            start = 1,
-            end = 1,
+            startDelayMillis = 1L,
+            start = 0,
+            end = 0,
             onTick = {
                 scope.launch {
                     _state.update { state ->
-                        val done = it == 1
+                        val done = it == 0
                         state.copy(
                             startCountdownViewState = StartCountdownViewState(
                                 text = if (done) "FIGHT" else it.toString(),
@@ -342,7 +342,7 @@ class GameViewModel(
 
     private fun delayedFinish(finishFunction: () -> Unit) {
         scope.launch {
-            delay(3000)
+            delay(2000.milliseconds)
             finishFunction()
         }
     }
