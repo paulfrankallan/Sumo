@@ -21,7 +21,7 @@ fun Janome(
     state: GameState,
     modifier: Modifier = Modifier,
     onPressed: (Boolean, Player) -> Unit,
-    onReleased: (player: Player) -> Unit,
+    onReleased: (player: Player) -> Unit = {},
     onIntent: (Intent) -> Unit,
     resetThumbPositions: Boolean,
     onInputCommand: (InputCommand) -> Unit = {},

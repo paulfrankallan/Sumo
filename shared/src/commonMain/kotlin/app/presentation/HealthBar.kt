@@ -22,11 +22,11 @@ fun HealthBar(
     modifier: Modifier = Modifier,
     health: Int = 100,
     foregroundColor: Color = AppColor.LIGHT_GREEN.color,
-    backgroundColor: Color = Color.Gray,
+    backgroundColor: Color = Color.Gray.copy(alpha = 0.50f),
     foregroundImage: Painter? = null,
     backgroundImage: Painter? = null,
-    cornerRadius: Float = 45f,
-    height: Dp = 20.dp
+    cornerRadius: Float = 16f,
+    height: Dp = 12.dp
 ) {
     val healthPercentage = remember(health) { health.coerceIn(0, 100) / 100f }
     val outerShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }

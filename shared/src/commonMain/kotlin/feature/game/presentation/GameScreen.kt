@@ -20,21 +20,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import app.presentation.HealthBar
 import app.theme.playerOneColor
 import app.theme.playerTwoColor
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
+import feature.common.model.Position
+import feature.common.presentation.Intent
 import feature.game.domain.input.InputCommand
 import feature.game.domain.input.InputSource
 import feature.game.joystick.RikishiJoystick
+import feature.game.joystick.ui.state.JoystickState
 import feature.game.joystick.ui.view.rememberJoystickState
-import feature.game.presentation.ui.Janome
+import feature.game.presentation.model.Player
 import feature.game.presentation.ui.IntroCountdownView
+import feature.game.presentation.ui.Janome
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
@@ -63,13 +69,31 @@ fun GameScreen(
                 viewModel.onIntent(GameIntent.GameOver())
             }
         }
-
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
+    GameScreenContent(
+        state = state,
+        resetThumbPositions = resetThumbPositions,
+        topJoystickState = topJoystickState,
+        bottomJoystickState = bottomJoystickState,
+        onIntent = viewModel::onIntent,
+        onSubmitInput = viewModel.gameLoop::submitInput,
+    )
+}
+
+@Composable
+fun GameScreenContent(
+    state: GameState,
+    resetThumbPositions: Boolean,
+    topJoystickState: JoystickState,
+    bottomJoystickState: JoystickState,
+    onIntent: (Intent) -> Unit,
+    onSubmitInput: (InputCommand) -> Unit,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -83,7 +107,11 @@ fun GameScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxSize().run {
                 val insets = WindowInsets.safeContent.asPaddingValues()
-                val symmetricPadding = max(insets.calculateTopPadding(), insets.calculateBottomPadding())
+                val symmetricPadding =
+                    max(
+                        insets.calculateTopPadding(),
+                        insets.calculateBottomPadding()
+                    )
                 padding(vertical = symmetricPadding)
             }
         ) {
@@ -92,8 +120,8 @@ fun GameScreen(
                 painter = painterResource(Res.drawable.shikiri_sen),
                 contentDescription = null,
                 modifier = Modifier
+                    .padding(horizontal = 16.dp)
                     .fillMaxWidth()
-                    .aspectRatio(SANDBAG_ASPECT_RATIO)
                     .rotate(180f),
                 contentScale = ContentScale.FillBounds,
             )
@@ -103,15 +131,14 @@ fun GameScreen(
                 accentColor = playerTwoColor,
                 onMoveStart = {
                     if (state.playState != PlayState.IN_PROGRESS || state.isGameOver) {
-                        viewModel.onIntent(GameIntent.StartGame)
+                        onIntent(GameIntent.StartGame)
                     }
                 },
                 onMove = { snapshot ->
-                    // Feed joystick input into the new game engine input channel.
-                    viewModel.gameLoop.submitInput(InputCommand(
+                    onSubmitInput(InputCommand(
                         playerId = state.topPlayer.id,
                         // Negate: top joystick is rotated 180° visually.
-                        velocityVector = androidx.compose.ui.geometry.Offset(
+                        velocityVector = Offset(
                             x = -snapshot.position.x.minus(topJoystickState.center.x)
                                 .div(topJoystickState.radius)
                                 .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
@@ -130,8 +157,6 @@ fun GameScreen(
             HealthBar(
                 health = state.topPlayer.health,
                 foregroundColor = playerTwoColor,
-                backgroundColor = playerTwoColor.copy(alpha = 0.25f),
-                height = 14.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -142,22 +167,17 @@ fun GameScreen(
                     .fillMaxWidth()
                     .aspectRatio(1f),
                 onPressed = { isPressed, player ->
-                    viewModel.onIntent(GameIntent.PressStateChanged(isPressed, player))
-                },
-                onReleased = { player ->
-                    Unit
+                    onIntent(GameIntent.PressStateChanged(isPressed, player))
                 },
                 resetThumbPositions = resetThumbPositions,
-                onInputCommand = { cmd -> viewModel.gameLoop.submitInput(cmd) },
-                onIntent = viewModel::onIntent,
+                onInputCommand = onSubmitInput,
+                onIntent = onIntent,
                 topJoystickState = topJoystickState,
                 bottomJoystickState = bottomJoystickState,
             )
             HealthBar(
                 health = state.bottomPlayer.health,
                 foregroundColor = playerOneColor,
-                backgroundColor = playerOneColor.copy(alpha = 0.25f),
-                height = 14.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -168,13 +188,13 @@ fun GameScreen(
                 accentColor = playerOneColor,
                 onMoveStart = {
                     if (state.playState != PlayState.IN_PROGRESS || state.isGameOver) {
-                        viewModel.onIntent(GameIntent.StartGame)
+                        onIntent(GameIntent.StartGame)
                     }
                 },
                 onMove = { snapshot ->
-                    viewModel.gameLoop.submitInput(InputCommand(
+                    onSubmitInput(InputCommand(
                         playerId = state.bottomPlayer.id,
-                        velocityVector = androidx.compose.ui.geometry.Offset(
+                        velocityVector = Offset(
                             x = snapshot.position.x.minus(bottomJoystickState.center.x)
                                 .div(bottomJoystickState.radius)
                                 .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
@@ -194,8 +214,8 @@ fun GameScreen(
                 painter = painterResource(Res.drawable.shikiri_sen),
                 contentDescription = null,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(SANDBAG_ASPECT_RATIO),
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
                 contentScale = ContentScale.FillBounds,
             )
         }
@@ -203,5 +223,21 @@ fun GameScreen(
     IntroCountdownView(state = state.startCountdownViewState)
 }
 
+@Preview
+@Composable
+private fun GameScreenContentPreview() {
+    GameScreenContent(
+        state = GameState(
+            gameId = "preview",
+            topPlayer = Player(id = "top", position = Position.TOP),
+            bottomPlayer = Player(id = "bottom", position = Position.BOTTOM),
+        ),
+        resetThumbPositions = false,
+        topJoystickState = rememberJoystickState(),
+        bottomJoystickState = rememberJoystickState(),
+        onIntent = {},
+        onSubmitInput = {},
+    )
+}
+
 private const val JOYSTICK_INPUT_SCALE = 6f
-private const val SANDBAG_ASPECT_RATIO = 749f / 65f
