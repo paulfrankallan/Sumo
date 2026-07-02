@@ -41,6 +41,7 @@ import feature.game.joystick.ui.view.rememberJoystickState
 import feature.game.presentation.model.Player
 import feature.game.presentation.ui.IntroCountdownView
 import feature.game.presentation.ui.Janome
+import platform.presentation.KeepScreenOn
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
@@ -83,6 +84,8 @@ fun GameScreen(
         onIntent = viewModel::onIntent,
         onSubmitInput = viewModel.gameLoop::submitInput,
     )
+
+    KeepScreenOn()
 }
 
 @Composable
@@ -115,16 +118,6 @@ fun GameScreenContent(
                 padding(vertical = symmetricPadding)
             }
         ) {
-            // Sandbag strip — rotated 180° to face the top player's direction.
-            Image(
-                painter = painterResource(Res.drawable.shikiri_sen),
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth()
-                    .rotate(180f),
-                contentScale = ContentScale.FillBounds,
-            )
             RikishiJoystick(
                 state = topJoystickState,
                 primaryColor = playerTwoColor,
@@ -208,15 +201,6 @@ fun GameScreenContent(
                 modifier = Modifier
                     .weight(1f)
                     .padding(bottom = 8.dp)
-            )
-            // Sandbag strip at the bottom edge.
-            Image(
-                painter = painterResource(Res.drawable.shikiri_sen),
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth(),
-                contentScale = ContentScale.FillBounds,
             )
         }
     }
