@@ -10,8 +10,6 @@ import feature.game.domain.model.GameOverResult
 import feature.game.domain.model.StartCountdownViewState
 import feature.game.presentation.model.Player
 import org.jetbrains.compose.resources.DrawableResource
-import app.theme.playerOneColor
-import app.theme.playerTwoColor
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.rikishi_blue
 import sumo.shared.generated.resources.rikishi_red

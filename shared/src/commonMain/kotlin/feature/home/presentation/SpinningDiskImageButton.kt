@@ -24,7 +24,6 @@ import app.LocalScreen
 import co.touchlab.kermit.Logger
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.btn_4
 import sumo.shared.generated.resources.dohyo
 
 @Composable

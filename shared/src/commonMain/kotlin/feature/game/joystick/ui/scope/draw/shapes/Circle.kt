@@ -5,9 +5,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import feature.game.joystick.core.geometry.Radius
 import feature.game.joystick.extensions.geometry.parametrize
 import feature.game.joystick.ui.scope.ControlDrawScope
-import feature.game.joystick.core.geometry.Radius
 
 /**
  * Defines how shapes are positioned relative to the joystick boundary.

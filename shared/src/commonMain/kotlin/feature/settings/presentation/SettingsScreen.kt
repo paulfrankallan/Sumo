@@ -3,7 +3,6 @@
 package feature.settings.presentation
 
 import androidx.compose.foundation.layout.Arrangement.Absolute.spacedBy
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize

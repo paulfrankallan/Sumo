@@ -3,7 +3,6 @@ package feature.game.joystick.extensions.geometry
 import feature.game.joystick.core.control.MaxQuadrants
 import feature.game.joystick.core.geometry.DEGREE_SPIN
 import kotlin.math.PI
-import kotlin.ranges.contains
 
 /** Converts this angle from degrees to radians. */
 fun Double.toRadians(): Double = this / 180.0 * PI

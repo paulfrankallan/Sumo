@@ -7,11 +7,11 @@ import androidx.compose.ui.Modifier
 import feature.game.joystick.core.control.BackgroundType
 import feature.game.joystick.ui.icons.JoystickIcons.Background
 import feature.game.joystick.ui.icons.background.Classic
-import feature.game.joystick.ui.icons.background.Modern
 import feature.game.joystick.ui.icons.background.Default
 import feature.game.joystick.ui.icons.background.DpadClassic
 import feature.game.joystick.ui.icons.background.DpadModern
 import feature.game.joystick.ui.icons.background.DpadStandard
+import feature.game.joystick.ui.icons.background.Modern
 import feature.game.joystick.ui.tokens.JoystickDefaults
 
 /**

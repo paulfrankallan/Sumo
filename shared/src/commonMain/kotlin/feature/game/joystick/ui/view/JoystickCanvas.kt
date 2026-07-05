@@ -6,9 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.graphicsLayer
-import feature.game.joystick.ui.scope.ControlScope
 import feature.game.joystick.ui.scope.ControlDrawScope
 import feature.game.joystick.ui.scope.ControlDrawScopeImpl
+import feature.game.joystick.ui.scope.ControlScope
 
 /**
  * A composable canvas for drawing joystick visualizations.

@@ -1,6 +1,5 @@
 package feature.game.presentation
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,12 +40,11 @@ import feature.game.joystick.ui.view.rememberJoystickState
 import feature.game.presentation.model.Player
 import feature.game.presentation.ui.IntroCountdownView
 import feature.game.presentation.ui.Janome
-import platform.presentation.KeepScreenOn
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
+import platform.presentation.KeepScreenOn
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.sand_dark
-import sumo.shared.generated.resources.shikiri_sen
 
 @Composable
 fun GameScreen(

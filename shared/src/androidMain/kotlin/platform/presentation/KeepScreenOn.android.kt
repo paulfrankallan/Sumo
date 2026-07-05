@@ -1,9 +1,9 @@
 package platform.presentation
 
+import android.view.WindowManager
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import android.view.WindowManager
 
 @Composable
 actual fun KeepScreenOn() {
