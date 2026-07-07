@@ -32,6 +32,7 @@ import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun Dohyo(
@@ -206,7 +207,7 @@ fun Dohyo(
                     )
                 )
             }
-            delay(JOYSTICK_TICK_MS)
+            delay(JOYSTICK_TICK_MS.milliseconds)
         }
     }
 
@@ -226,7 +227,7 @@ fun Dohyo(
                     )
                 )
             }
-            delay(JOYSTICK_TICK_MS)
+            delay(JOYSTICK_TICK_MS.milliseconds)
         }
     }
 }

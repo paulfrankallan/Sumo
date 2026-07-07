@@ -21,12 +21,12 @@ import androidx.compose.ui.draw.paint
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.presentation.HealthBar
 import app.theme.playerOneColor
 import app.theme.playerTwoColor
@@ -44,7 +44,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import platform.presentation.KeepScreenOn
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.sand_dark
+import sumo.shared.generated.resources.game_bg
 
 @Composable
 fun GameScreen(
@@ -99,7 +99,7 @@ fun GameScreenContent(
         modifier = Modifier
             .fillMaxSize()
             .paint(
-                painter = painterResource(Res.drawable.sand_dark),
+                painter = painterResource(Res.drawable.game_bg),
                 contentScale = ContentScale.FillBounds
             ),
     ) {

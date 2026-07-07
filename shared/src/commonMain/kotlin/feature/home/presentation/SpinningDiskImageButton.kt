@@ -24,7 +24,7 @@ import app.LocalScreen
 import co.touchlab.kermit.Logger
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.dohyo
+import sumo.shared.generated.resources.sumo_title_2
 
 @Composable
 fun SpinningDiskImageButton(
@@ -40,9 +40,9 @@ fun SpinningDiskImageButton(
         )
     )
     val screenWidth = LocalScreen.current.width
-    val radius = screenWidth * 0.4f
-    val diameter = radius * 2
-    val image = painterResource(resource = Res.drawable.dohyo)
+    val radius = screenWidth * 0.3f
+    val diameter = radius * 1.5f
+    val image = painterResource(resource = Res.drawable.sumo_title_2)
 
     Box(
         modifier = Modifier

@@ -13,11 +13,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.unit.dp
 import app.nav.NavController
 import app.theme.AppColor
-import app.theme.colorHomeDarkGreen
-import app.theme.colorHomeLightGreen
+import app.theme.appGold
 import feature.instructions.nav.navigateToInstructionsScreen
 import feature.settings.nav.navigateToSettingsScreen
 import org.jetbrains.compose.resources.painterResource
@@ -40,12 +40,11 @@ fun HomeTopBar(
     val platformInfo = remember { getPlatformInfo() }
     val modifier = if (platformInfo.isAndroid && platformInfo.version >= AndroidVersion.R) {
         Modifier
-            .background(colorHomeDarkGreen)
             .safeDrawingPadding()
             .systemBarsPadding()
     } else {
         Modifier
-            .background(colorHomeDarkGreen)
+            .background(Transparent)
     }
     TopAppBar(
         title = {},
@@ -74,7 +73,7 @@ fun HomeTopBar(
                 Icon(
                     painter = painterResource(Res.drawable.settings),
                     contentDescription = "Settings",
-                    tint = colorHomeLightGreen,
+                    tint = appGold,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -93,7 +92,7 @@ fun HomeTopBar(
                     ),
                     contentDescription = "Music toggle",
                     tint = if (musicOn) {
-                        colorHomeLightGreen
+                        appGold
                     } else {
                         AppColor.BLOOD_RED.color
                     },
@@ -110,13 +109,13 @@ fun HomeTopBar(
                 Icon(
                     painter = painterResource(Res.drawable.outline_help_24),
                     contentDescription = "Instructions",
-                    tint = colorHomeLightGreen,
+                    tint = appGold,
                     modifier = Modifier.fillMaxSize()
                 )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = colorHomeDarkGreen,
+            containerColor = Transparent,
         ),
         modifier = modifier
     )

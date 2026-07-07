@@ -129,11 +129,18 @@ class GameViewModel(
                             }
                             triggerResetThumbPositions()
                             scope.launch(Dispatchers.Default) {
-                                soundAndVibration.gameOverFeedback()
+                                soundAndVibration.damageFeedback()
                             }
                         }
                     }
-                    is PhysicsEvent.RikishiCollision -> { /* future: collision sound/effect */ }
+                    is PhysicsEvent.RikishiCollision -> {
+                        val currentState = state.value
+                        if (currentState.playState == PlayState.IN_PROGRESS && !currentState.isGameOver) {
+                            scope.launch(Dispatchers.Default) {
+                                soundAndVibration.damageFeedback(duration = 40)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -233,7 +240,7 @@ class GameViewModel(
                                                 else isTopResettingAfterDamage.value
                     if (!otherAlreadyResetting) triggerResetThumbPositions()
                     scope.launch(Dispatchers.Default) {
-                        soundAndVibration.gameOverFeedback()
+                        soundAndVibration.damageFeedback()
                     }
                 }
             }

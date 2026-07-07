@@ -4,7 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import app.theme.AppColor
+import app.theme.appGold
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.back_arrow
@@ -19,7 +19,7 @@ fun PlatformExitArrow(
 ) {
     Icon(
         painter = painterResource(resource = Res.drawable.back_arrow),
-        tint = AppColor.BLOOD_RED.color,
+        tint = appGold,
         contentDescription = "Exit App Arrow",
         modifier = modifier.clickable { onClick() }
     )
