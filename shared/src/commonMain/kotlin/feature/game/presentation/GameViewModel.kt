@@ -360,4 +360,4 @@ class GameViewModel(
     }
 }
 
-private val CLASH_FEEDBACK_COOLDOWN = 180.milliseconds
+private val CLASH_FEEDBACK_COOLDOWN = 500.milliseconds
