@@ -14,7 +14,7 @@ class SoundAndVibrationFeedback(
     private val preferences: PrefsRepository,
     private val soundAndVibrate: SoundAndVibrate,
 ) {
-    fun damageFeedback(duration: Long = 100) {
+    fun clashFeedback(duration: Long = 100) {
         if (preferences.isVibrateEnabled()) {
             soundAndVibrate.vibrate(duration)
         }

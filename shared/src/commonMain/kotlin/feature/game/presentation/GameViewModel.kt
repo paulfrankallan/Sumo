@@ -129,7 +129,7 @@ class GameViewModel(
                             }
                             triggerResetThumbPositions()
                             scope.launch(Dispatchers.Default) {
-                                soundAndVibration.damageFeedback()
+                                soundAndVibration.gameOverFeedback()
                             }
                         }
                     }
@@ -137,7 +137,7 @@ class GameViewModel(
                         val currentState = state.value
                         if (currentState.playState == PlayState.IN_PROGRESS && !currentState.isGameOver) {
                             scope.launch(Dispatchers.Default) {
-                                soundAndVibration.damageFeedback(duration = 40)
+                                soundAndVibration.clashFeedback()
                             }
                         }
                     }
@@ -240,7 +240,7 @@ class GameViewModel(
                                                 else isTopResettingAfterDamage.value
                     if (!otherAlreadyResetting) triggerResetThumbPositions()
                     scope.launch(Dispatchers.Default) {
-                        soundAndVibration.damageFeedback()
+                        soundAndVibration.gameOverFeedback()
                     }
                 }
             }
