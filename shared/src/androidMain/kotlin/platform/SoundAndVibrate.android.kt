@@ -4,10 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.media.MediaPlayer
 import android.os.Build
-import android.os.CombinedVibration
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.os.VibratorManager
 import app.util.isTrue
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -17,6 +15,8 @@ actual class SoundAndVibrate(
     private val context: Context,
     private val resourceIdProvider: ResourceIdProvider
 ) {
+    private val appContext = context.applicationContext
+
     // ConcurrentHashMap ensures thread-safe reads/writes when audio calls arrive
     // from multiple IO coroutines simultaneously.
     private val mediaPlayers = ConcurrentHashMap<String, MediaPlayer>()
@@ -25,7 +25,7 @@ actual class SoundAndVibrate(
     actual fun loopSound(soundResource: String, speed: Float) {
         releasePlayer(soundResource)
         val resourceId = resourceIdProvider.getResourceId(soundResource) ?: return
-        mediaPlayers[soundResource] = MediaPlayer.create(context, resourceId)?.apply {
+        mediaPlayers[soundResource] = MediaPlayer.create(appContext, resourceId)?.apply {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 playbackParams = playbackParams.setSpeed(speed)
             }
@@ -47,7 +47,7 @@ actual class SoundAndVibrate(
     @Synchronized
     actual fun playSound(soundResource: String) {
         val resourceId = resourceIdProvider.getResourceId(soundResource) ?: return
-        mediaPlayers[soundResource] = MediaPlayer.create(context, resourceId)?.apply {
+        mediaPlayers[soundResource] = MediaPlayer.create(appContext, resourceId)?.apply {
             try {
                 if (!isPlaying.isTrue()) start()
                 setOnCompletionListener {
@@ -64,39 +64,27 @@ actual class SoundAndVibrate(
     @Suppress("DEPRECATION")
     @SuppressLint("ObsoleteSdkInt")
     actual fun vibrate(duration: Long) {
-        val vibrationDuration = duration.coerceAtLeast(80L)
-        val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK)
-        } else {
-            VibrationEffect.createOneShot(vibrationDuration, VibrationEffect.DEFAULT_AMPLITUDE)
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            if (manager != null) {
-                manager.vibrate(CombinedVibration.createParallel(effect))
-                return
-            }
-        }
-
         val vibrator = resolveVibrator() ?: return
+        if (!vibrator.hasVibrator()) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(effect)
+            val vibrationDuration = duration.coerceAtLeast(220L)
+            vibrator.vibrate(
+                VibrationEffect.createWaveform(
+                    longArrayOf(0L, vibrationDuration, 80L, vibrationDuration),
+                    intArrayOf(0, 255, 0, 255),
+                    -1,
+                )
+            )
         } else {
+            val vibrationDuration = duration.coerceAtLeast(300L)
             @Suppress("DEPRECATION")
             vibrator.vibrate(vibrationDuration)
         }
     }
 
-    @SuppressLint("ObsoleteSdkInt")
     private fun resolveVibrator(): Vibrator? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            val managerVibrator = manager?.defaultVibrator
-            if (managerVibrator != null) return managerVibrator
-        }
         @Suppress("DEPRECATION")
-        return context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        return appContext.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 
     private fun releasePlayer(soundResource: String) {

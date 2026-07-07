@@ -38,6 +38,7 @@ import sumo.shared.generated.resources.rikishi_blue
 import sumo.shared.generated.resources.rikishi_red
 import sumo.shared.generated.resources.winner
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 class GameViewModel(
     private val applyDamage: ApplyDamage,
@@ -51,6 +52,7 @@ class GameViewModel(
     // while still allowing both players to be damaged in the same cycle.
     private val isTopResettingAfterDamage = mutableStateOf(false)
     private val isBottomResettingAfterDamage = mutableStateOf(false)
+    private var lastClashFeedbackMark = TimeSource.Monotonic.markNow()
     // Single shared position reset — both Rikishi always return to start together.
     private val _resetThumbPositions = mutableStateOf(false)
     val resetThumbPositions: State<Boolean> = _resetThumbPositions
@@ -136,8 +138,11 @@ class GameViewModel(
                     is PhysicsEvent.RikishiCollision -> {
                         val currentState = state.value
                         if (currentState.playState == PlayState.IN_PROGRESS && !currentState.isGameOver) {
-                            scope.launch(Dispatchers.Default) {
-                                soundAndVibration.clashFeedback()
+                            if (lastClashFeedbackMark.elapsedNow() >= CLASH_FEEDBACK_COOLDOWN) {
+                                lastClashFeedbackMark = TimeSource.Monotonic.markNow()
+                                scope.launch(Dispatchers.Default) {
+                                    soundAndVibration.clashFeedback()
+                                }
                             }
                         }
                     }
@@ -354,3 +359,5 @@ class GameViewModel(
         }
     }
 }
+
+private val CLASH_FEEDBACK_COOLDOWN = 180.milliseconds
