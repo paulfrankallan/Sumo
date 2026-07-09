@@ -48,12 +48,12 @@ fun Dohyo(
 ) {
     val density = LocalDensity.current
     val currentState = rememberUpdatedState(state)
-    val circleStroke = remember { 5f }
+    val circleStroke = remember { 1f }
     val arenaMeasuredSent = remember { mutableStateOf(false) }
     val circleCenter = remember { mutableStateOf(Offset.Zero) }
     val circleRadius = remember { mutableStateOf(0f) }
     val screenWidth = LocalScreen.current.width
-    val spotDiameter = remember(screenWidth) { screenWidth * 0.20f }
+    val spotDiameter = remember(screenWidth) { screenWidth * 0.16f }
     val spotDiameterPx = with(density) { spotDiameter.toPx() }
     val spotRadiusPx = spotDiameterPx / 2f
 
@@ -103,7 +103,7 @@ fun Dohyo(
             )
 
             drawCircle(
-                color = Color.Transparent,
+                color = Color.Red,
                 center = circleCenter.value,
                 radius = circleRadius.value,
                 style = Stroke(width = circleStroke)

@@ -11,8 +11,9 @@ actual class ResourceIdProvider {
             RES_ID_DIE_3 -> R.raw.die3
             RES_ID_DIE_4 -> R.raw.die4
             RES_ID_DIE_5 -> R.raw.die5
-            RES_ID_MUSIC_3 -> R.raw.music3
-            RES_ID_HOME_LOOP -> R.raw.home_loop
+            RES_ID_MUSIC_3 -> R.raw.sumo_music_drums
+            RES_ID_HOME_LOOP -> R.raw.sumo_music_1
+            RES_ID_HAKKEYOI -> R.raw.hakkeyoi
             else -> null
         }
     }

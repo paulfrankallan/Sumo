@@ -26,9 +26,7 @@ actual class SoundAndVibrate(
         releasePlayer(soundResource)
         val resourceId = resourceIdProvider.getResourceId(soundResource) ?: return
         mediaPlayers[soundResource] = MediaPlayer.create(appContext, resourceId)?.apply {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                playbackParams = playbackParams.setSpeed(speed)
-            }
+            playbackParams = playbackParams.setSpeed(speed)
             setOnCompletionListener {
                 it.reset()
                 it.release()
