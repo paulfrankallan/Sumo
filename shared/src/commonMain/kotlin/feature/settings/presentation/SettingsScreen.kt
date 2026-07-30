@@ -42,6 +42,8 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.settings_app_version
+import sumo.shared.generated.resources.settings_full_contact
+import sumo.shared.generated.resources.settings_full_contact_description
 import sumo.shared.generated.resources.settings_music
 import sumo.shared.generated.resources.settings_music_description
 import sumo.shared.generated.resources.settings_privacy_policy

@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.presentation.HealthBar
 import app.theme.playerOneColor
 import app.theme.playerTwoColor
+import com.russhwolf.settings.ExperimentalSettingsApi
 import feature.common.model.Position
 import feature.common.presentation.Intent
 import feature.game.domain.input.InputCommand
@@ -75,6 +76,9 @@ fun GameScreen(
         }
     }
 
+    val prefs: PrefsRepository = koinInject()
+    val isFullContact = prefs.isFullContactEnabled()
+
     GameScreenContent(
         state = state,
         resetThumbPositions = resetThumbPositions,
@@ -82,11 +86,13 @@ fun GameScreen(
         bottomJoystickState = bottomJoystickState,
         onIntent = viewModel::onIntent,
         onSubmitInput = viewModel.gameLoop::submitInput,
+        isFullContact = isFullContact,
     )
 
     KeepScreenOn()
 }
 
+@OptIn(ExperimentalSettingsApi::class)
 @Composable
 fun GameScreenContent(
     state: GameState,
@@ -95,6 +101,7 @@ fun GameScreenContent(
     bottomJoystickState: JoystickState,
     onIntent: (Intent) -> Unit,
     onSubmitInput: (InputCommand) -> Unit,
+    isFullContact: Boolean = false,
 ) {
     Box(
         modifier = Modifier
@@ -153,9 +160,6 @@ fun GameScreenContent(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             )
-            val prefs: PrefsRepository = koinInject()
-            val isFullContact = prefs.isFullContactEnabled()
-
             Janome(
                 state = state,
                 modifier = Modifier
