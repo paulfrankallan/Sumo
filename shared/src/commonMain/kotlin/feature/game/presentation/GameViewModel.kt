@@ -53,6 +53,8 @@ class GameViewModel(
     private val isTopResettingAfterDamage = mutableStateOf(false)
     private val isBottomResettingAfterDamage = mutableStateOf(false)
     private var lastClashFeedbackMark = TimeSource.Monotonic.markNow()
+    // Tracks whether a clash vibration has been emitted since the last health damage.
+    private var hasVibratedSinceDamage = false
     // Single shared position reset — both Rikishi always return to start together.
     private val _resetThumbPositions = mutableStateOf(false)
     val resetThumbPositions: State<Boolean> = _resetThumbPositions
@@ -122,6 +124,9 @@ class GameViewModel(
                             if (isTop) isTopResettingAfterDamage.value = true
                             else isBottomResettingAfterDamage.value = true
                             _state.update { s -> applyDamage(s, player) }
+                            // Reset clash vibration allowance — next clash should vibrate.
+                            hasVibratedSinceDamage = false
+
                             currentInitialWorld(currentState)?.let { gameLoop.reset(it) }
                             // If the player was actively dragging when they hit the boundary,
                             // block their drag input until the gesture ends — prevents the
@@ -138,8 +143,9 @@ class GameViewModel(
                     is PhysicsEvent.RikishiCollision -> {
                         val currentState = state.value
                         if (currentState.playState == PlayState.IN_PROGRESS && !currentState.isGameOver) {
-                            if (lastClashFeedbackMark.elapsedNow() >= CLASH_FEEDBACK_COOLDOWN) {
-                                lastClashFeedbackMark = TimeSource.Monotonic.markNow()
+                            // Only vibrate on the first clash since the last health damage.
+                            if (!hasVibratedSinceDamage) {
+                                hasVibratedSinceDamage = true
                                 scope.launch(Dispatchers.Default) {
                                     soundAndVibration.clashFeedback()
                                 }
@@ -233,6 +239,9 @@ class GameViewModel(
                     if (isTop) isTopResettingAfterDamage.value = true
                     else isBottomResettingAfterDamage.value = true
                     _state.update { state -> applyDamage(state, intent.player) }
+                    // Damage happened — allow the next clash to vibrate.
+                    hasVibratedSinceDamage = false
+
                     currentInitialWorld(state.value)?.let { gameLoop.reset(it) }
                     val currentPlayer = if (isTop) state.value.topPlayer else state.value.bottomPlayer
                     if (currentPlayer.thumbState == ThumbState.PRESSED) {
