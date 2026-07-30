@@ -42,6 +42,7 @@ import feature.game.presentation.ui.IntroCountdownView
 import feature.game.presentation.ui.Janome
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
+import feature.settings.data.PrefsRepository
 import platform.presentation.KeepScreenOn
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.game_bg
@@ -152,6 +153,9 @@ fun GameScreenContent(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             )
+            val prefs: PrefsRepository = koinInject()
+            val isFullContact = prefs.isFullContactEnabled()
+
             Janome(
                 state = state,
                 modifier = Modifier
@@ -165,6 +169,7 @@ fun GameScreenContent(
                 onIntent = onIntent,
                 topJoystickState = topJoystickState,
                 bottomJoystickState = bottomJoystickState,
+                isFullContact = isFullContact,
             )
             HealthBar(
                 health = state.bottomPlayer.health,

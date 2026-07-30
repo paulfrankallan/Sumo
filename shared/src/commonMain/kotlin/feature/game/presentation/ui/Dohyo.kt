@@ -45,6 +45,7 @@ fun Dohyo(
     onInputCommand: (InputCommand) -> Unit = {},
     topJoystickState: JoystickState? = null,
     bottomJoystickState: JoystickState? = null,
+    isFullContact: Boolean = false,
 ) {
     val density = LocalDensity.current
     val currentState = rememberUpdatedState(state)
@@ -160,7 +161,8 @@ fun Dohyo(
             onPressed = { onPressed(it, currentState.value.topPlayer) },
             onReleased = { onReleased(currentState.value.topPlayer) },
             spotDiameter = spotDiameter,
-            rotationDegrees = rotationDegrees
+            rotationDegrees = rotationDegrees,
+            isFullContact = isFullContact,
         )
 
         Rikishi(
@@ -181,7 +183,8 @@ fun Dohyo(
             onPressed = { onPressed(it, currentState.value.bottomPlayer) },
             onReleased = { onReleased(currentState.value.bottomPlayer) },
             spotDiameter = spotDiameter,
-            rotationDegrees = rotationDegrees + 180f
+            rotationDegrees = rotationDegrees + 180f,
+            isFullContact = isFullContact,
         )
 
         GameOverView(state = currentState.value)

@@ -27,6 +27,7 @@ fun Janome(
     onInputCommand: (InputCommand) -> Unit = {},
     topJoystickState: JoystickState? = null,
     bottomJoystickState: JoystickState? = null,
+    isFullContact: Boolean = false,
 ) {
     Box(
         modifier = modifier.padding(horizontal = 8.dp).paint(
@@ -43,6 +44,7 @@ fun Janome(
             onInputCommand = onInputCommand,
             topJoystickState = topJoystickState,
             bottomJoystickState = bottomJoystickState,
+            isFullContact = isFullContact,
         )
     }
 }

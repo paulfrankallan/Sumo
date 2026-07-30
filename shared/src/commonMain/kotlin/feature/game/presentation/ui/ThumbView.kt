@@ -47,6 +47,8 @@ fun Rikishi(
     onPressed: (Boolean) -> Unit,
     onReleased: (Boolean) -> Unit,
     rotationDegrees: Float = 0f,
+    // When false, disable touch-based control — only joystick input will move Rikishi.
+    isFullContact: Boolean = false,
 ) {
     val density = LocalDensity.current
     val spotDiameterPx = with(density) { spotDiameter.toPx() }
@@ -60,25 +62,19 @@ fun Rikishi(
     val circleCenter = Offset(spotRadiusPx, spotRadiusPx)
     val isDragging = remember { mutableStateOf(false) }
 
-    Canvas(
-        modifier = Modifier
-            .size(spotDiameter)
-            .offset {
-                intOffset.value = IntOffset(
-                    thumbOffsetPosition.x.roundToInt(),
-                    thumbOffsetPosition.y.roundToInt()
-                )
-                intOffset.value
-            }
-            // For debugging purposes
-//            .pointerInput(Unit) {
-//                awaitPointerEventScope {
-//                    while (true) {
-//                        val event = awaitPointerEvent()
-//                        Logger.d { "PFA ${event.type}, ${event.changes.first().position}" }
-//                    }
-//                }
-//            }
+    // Build the modifier and only attach touch handlers when full-contact is enabled.
+    var canvasModifier = Modifier
+        .size(spotDiameter)
+        .offset {
+            intOffset.value = IntOffset(
+                thumbOffsetPosition.x.roundToInt(),
+                thumbOffsetPosition.y.roundToInt()
+            )
+            intOffset.value
+        }
+
+    if (isFullContact) {
+        canvasModifier = canvasModifier
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { _ ->
@@ -124,7 +120,9 @@ fun Rikishi(
                     }
                 )
             }
-    ) {
+    }
+
+    Canvas(modifier = canvasModifier) {
         drawCircle(
             color = spotBackgroundColor,
             center = Offset(size.width / 2, size.height / 2),

@@ -26,6 +26,8 @@
     <string name="settings_sound_description">Turn sound effects on or off</string>
     <string name="settings_music">Music</string>
     <string name="settings_music_description">Turn music on or off</string>
+    <string name="settings_full_contact">Full contact</string>
+    <string name="settings_full_contact_description">Allow direct touch/drag control of Rikishi (when off, only joystick controls are allowed)</string>
     <string name="settings_privacy_policy">Privacy Policy</string>
     <string name="settings_privacy_policy_description">Opens Privacy Policy in external web browser</string>
     <string name="settings_user_feedback">Feedback</string>

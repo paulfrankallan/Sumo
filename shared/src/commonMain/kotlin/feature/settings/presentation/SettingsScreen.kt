@@ -35,6 +35,7 @@ import feature.feedback.nav.navigateToUserFeedbackScreen
 import feature.settings.data.PrefsRepository.Companion.PREF_KEY_MUSIC
 import feature.settings.data.PrefsRepository.Companion.PREF_KEY_SOUND
 import feature.settings.data.PrefsRepository.Companion.PREF_KEY_VIBRATE
+import feature.settings.data.PrefsRepository.Companion.PREF_KEY_FULL_CONTACT
 import feature.settings.presentation.ui.SwitchPref
 import feature.settings.presentation.ui.TextPref
 import org.jetbrains.compose.resources.stringResource
@@ -173,6 +174,28 @@ fun SettingsContent(
                             key = PREF_KEY_MUSIC,
                             title = stringResource(Res.string.settings_music),
                             summary = stringResource(Res.string.settings_music_description),
+                            enabled = true,
+                            checked = prefValue,
+                            edit = { key, value ->
+                                onIntent(UpdateSwitchPreference(key, value))
+                            }
+                        )
+                    }
+                }
+                item {
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        thickness = 3.dp,
+                        color = colorHomeLightGreen
+                    )
+                }
+                item {
+                    state.switchPreferences[PREF_KEY_FULL_CONTACT]?.let { prefValue ->
+                        SwitchPref(
+                            key = PREF_KEY_FULL_CONTACT,
+                            title = stringResource(Res.string.settings_full_contact),
+                            summary = stringResource(Res.string.settings_full_contact_description),
                             enabled = true,
                             checked = prefValue,
                             edit = { key, value ->
