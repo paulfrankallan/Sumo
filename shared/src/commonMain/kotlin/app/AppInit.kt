@@ -17,7 +17,8 @@ fun AppInit(
     showBannerAd: (Boolean) -> Unit,
     bannerHeight: Int,
 ) {
-    Logger.setTag("App")
+    // Use a consistent tag so all debug output from the sound system is easy to filter.
+    Logger.setTag("PFASOUND")
     KoinContext {
         AppTheme {
             App(

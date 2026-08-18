@@ -1,7 +1,9 @@
 package platform
 
+import co.touchlab.kermit.Logger
+
 class AndroidCallStateListener: CallStateListener {
     override fun initialize() {
-        println("AndroidCallStateListener initialized")
+        Logger.i { "PFASOUND - AndroidCallStateListener initialized" }
     }
 }

@@ -1,6 +1,6 @@
 
 
-
+Improve the gameplay by adding random power-ups. First player to tap the power-up gets something.
 
 
 TODO
@@ -25,5 +25,3 @@ TODO
 
 Gyōji = referee in the ring.
 Shimpan = judges around the ring who can overrule the Gyōji.
-
-Poly lecturers vision of horror.

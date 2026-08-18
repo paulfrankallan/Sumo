@@ -44,9 +44,38 @@ actual class SoundAndVibrate(
 
     @Synchronized
     actual fun playSound(soundResource: String) {
-        val resourceId = resourceIdProvider.getResourceId(soundResource) ?: return
-        mediaPlayers[soundResource] = MediaPlayer.create(appContext, resourceId)?.apply {
+        // Maintain backward-compatible behavior by delegating to the richer overload.
+        playSound(soundResource, speed = 1f, volume = 1f)
+    }
+
+    @Synchronized
+    actual fun playSound(soundResource: String, speed: Float, volume: Float) {
+        val resourceId = resourceIdProvider.getResourceId(soundResource) ?: run {
+            co.touchlab.kermit.Logger.e { "PFASOUND - SoundAndVibrate.android: unknown resource name=$soundResource" }
+            return
+        }
+        co.touchlab.kermit.Logger.i { "PFASOUND - SoundAndVibrate.android: playSound resource=$resourceId speed=$speed volume=$volume" }
+
+        // Debug: note when hakkeyoi resource is requested (no UI toast)
+        if (soundResource == RES_ID_HAKKEYOI) {
+            co.touchlab.kermit.Logger.d { "PFASOUND - SoundAndVibrate.android: hakkeyoi resource requested (debug)" }
+        }
+
+        val player = MediaPlayer.create(appContext, resourceId)
+        if (player == null) {
+            co.touchlab.kermit.Logger.e { "PFASOUND - SoundAndVibrate.android: MediaPlayer.create returned null for resource=$resourceId" }
+            return
+        }
+
+        mediaPlayers[soundResource] = player.apply {
             try {
+                // Apply subtle speed variation where supported.
+                try {
+                    playbackParams = playbackParams.setSpeed(speed)
+                } catch (_: Throwable) {
+                    // Ignore devices that don't support playback speed changes.
+                }
+                setVolume(volume.coerceIn(0f, 1f), volume.coerceIn(0f, 1f))
                 if (!isPlaying.isTrue()) start()
                 setOnCompletionListener {
                     it.reset()
@@ -54,9 +83,10 @@ actual class SoundAndVibrate(
                     mediaPlayers.remove(soundResource, it)
                 }
             } catch (e: IOException) {
+                co.touchlab.kermit.Logger.e { "PFASOUND - SoundAndVibrate.android: IOException while preparing player: ${e.message}" }
                 release()
             }
-        } ?: return
+        }
     }
 
     @Suppress("DEPRECATION")
