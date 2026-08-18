@@ -35,7 +35,9 @@ import platform.randomUUID
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.loser
 import sumo.shared.generated.resources.rikishi_blue
+import sumo.shared.generated.resources.rikishi_blue_push
 import sumo.shared.generated.resources.rikishi_red
+import sumo.shared.generated.resources.rikishi_red_push
 import sumo.shared.generated.resources.winner
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
@@ -75,6 +77,9 @@ class GameViewModel(
     // Previous positions used to estimate movement/velocity.
     private var prevTopPos: Offset? = null
     private var prevBottomPos: Offset? = null
+    
+    // Track previous touching state to detect transitions
+    private var prevTouching = false
 
     // Simple fallback stall detector state (pixel-based)
     private var simpleStalledFor = 0f
@@ -191,7 +196,8 @@ class GameViewModel(
                 val rawActivity = topRelSpeed + bottomRelSpeed + struggleComponent
 
                 // Are they touching/gripping? Use small epsilon to account for float math.
-                val touching = currentDist <= (world.topRikishi.radius + world.bottomRikishi.radius + 0.1f)
+                val threshold = world.topRikishi.radius + world.bottomRikishi.radius + 1.0f
+                val touching = currentDist <= threshold
 
                 // Bout finished or falling
                 val boutFinished = state.value.isGameOver || state.value.playState != PlayState.IN_PROGRESS
@@ -205,7 +211,7 @@ class GameViewModel(
 
                 // Debug per-frame (only when touching to limit noise)
                 co.touchlab.kermit.Logger.d {
-                    "PFASOUND - Frame: touching=$touching playState=${state.value.playState} boutFinished=$boutFinished rawActivity=${"%.3f".format(rawActivity)} topPxPerSec=${"%.1f".format(topPxPerSec)} bottomPxPerSec=${"%.1f".format(bottomPxPerSec)} simpleStalledFor=${"%.2f".format(simpleStalledFor)}"
+                    "PFASOUND - Frame: touching=$touching currentDist=${"%.2f".format(currentDist)} threshold=${"%.2f".format(world.topRikishi.radius + world.bottomRikishi.radius + 0.1f)} playState=${state.value.playState} boutFinished=$boutFinished rawActivity=${"%.3f".format(rawActivity)} topPxPerSec=${"%.1f".format(topPxPerSec)} bottomPxPerSec=${"%.1f".format(bottomPxPerSec)} simpleStalledFor=${"%.2f".format(simpleStalledFor)}"
                 }
 
                 // --- Fallback simple stall detector (pixel-based) ---
@@ -276,15 +282,34 @@ class GameViewModel(
                 prevTopPos = topPos
                 prevBottomPos = bottomPos
 
+                // Update UI state - ALWAYS update positions and only update images when touching state changes
                 _state.update { state ->
+                    // Only update images if touching state changed
+                    val ui = if (touching != prevTouching) {
+                        val topImage = if (touching) Res.drawable.rikishi_blue_push else Res.drawable.rikishi_blue
+                        val bottomImage = if (touching) Res.drawable.rikishi_red_push else Res.drawable.rikishi_red
+                        co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: Rikishi touching state changed! touching=$touching topImage=$topImage bottomImage=$bottomImage" }
+                        state.ui.copy(
+                            topThumbView = state.ui.topThumbView.copy(foregroundImage = topImage),
+                            bottomThumbView = state.ui.bottomThumbView.copy(foregroundImage = bottomImage),
+                            isTopPushing = touching,
+                            isBottomPushing = touching,
+                        )
+                    } else {
+                        state.ui
+                    }
+                    
                     state.copy(
                         topRikishiPosition = topPos,
                         bottomRikishiPosition = bottomPos,
                         arenaCentre = world.arena.centre,
                         arenaRadius = world.arena.radius,
                         rikishiRadius = world.topRikishi.radius,
+                        ui = ui,
                     )
                 }
+                
+                prevTouching = touching
             }
         }
 
@@ -501,7 +526,11 @@ class GameViewModel(
                 Res.drawable.winner
             }
         } else {
-            if (player.position == Position.TOP) Res.drawable.rikishi_blue else Res.drawable.rikishi_red
+            if (player.position == Position.TOP) {
+                if (state.ui.isTopPushing) Res.drawable.rikishi_blue_push else Res.drawable.rikishi_blue
+            } else {
+                if (state.ui.isBottomPushing) Res.drawable.rikishi_red_push else Res.drawable.rikishi_red
+            }
         }
     }
 

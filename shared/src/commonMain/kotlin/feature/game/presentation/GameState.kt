@@ -44,6 +44,8 @@ data class UI(
         foregroundColor = null,
         foregroundImage = Res.drawable.rikishi_red,
     ),
+    val isTopPushing: Boolean = false,
+    val isBottomPushing: Boolean = false,
 )
 
 data class ThumbViewState(

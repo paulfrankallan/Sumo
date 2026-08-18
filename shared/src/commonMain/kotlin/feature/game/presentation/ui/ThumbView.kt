@@ -34,7 +34,7 @@ import kotlin.math.sqrt
 @Composable
 fun Rikishi(
     spotDiameter: Dp,
-    spotBackgroundColor: Color = Color.Transparent,
+    spotBackgroundColor: Color = Color.Black,
     spotBackgroundImage: DrawableResource? = null,
     spotForegroundColor: Color?,
     spotForegroundImage: DrawableResource = Res.drawable.rikishi_blue,
