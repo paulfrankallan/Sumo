@@ -27,7 +27,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.nav.NavController
 import app.presentation.DialogWrapper
-import co.touchlab.kermit.Logger
 import feature.common.events.DialogEvent
 import feature.common.presentation.Intent
 import feature.game.nav.navigateToPlayGame
@@ -53,18 +52,14 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> {
-                    Logger.d("LifecycleEvent ON_PAUSE called")
                     viewModel.onIntent(HomeIntent.StopMusic)
                 }
 
                 Lifecycle.Event.ON_RESUME -> {
-                    Logger.d("LifecycleEvent ON_RESUME called")
                     viewModel.onIntent(HomeIntent.StartMusic)
                 }
 
-                else -> {
-                    Logger.d("LifecycleEvent Event: $event")
-                }
+                else -> Unit
             }
         }
 

@@ -14,6 +14,7 @@ import feature.common.model.Position
 import feature.common.presentation.CMViewModel
 import feature.common.presentation.Intent
 import feature.common.presentation.NavigationEvent
+import feature.game.domain.GyojiVoiceController
 import feature.game.domain.engine.GameLoop
 import feature.game.domain.model.ArenaWorld
 import feature.game.domain.model.GameWorld
@@ -40,9 +41,8 @@ import sumo.shared.generated.resources.rikishi_blue_push
 import sumo.shared.generated.resources.rikishi_red
 import sumo.shared.generated.resources.rikishi_red_push
 import sumo.shared.generated.resources.winner
+import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.TimeSource
-import feature.game.domain.GyojiVoiceController
 
 class GameViewModel(
     private val applyDamage: ApplyDamage,
@@ -61,14 +61,12 @@ class GameViewModel(
     // while still allowing both players to be damaged in the same cycle.
     private val isTopResettingAfterDamage = mutableStateOf(false)
     private val isBottomResettingAfterDamage = mutableStateOf(false)
-    private var lastClashFeedbackMark = TimeSource.Monotonic.markNow()
     // Tracks whether a clash vibration has been emitted since the last health damage.
     private var hasVibratedSinceDamage = false
 
     // Gyoji voice controller and cached positions for activity estimation.
     private val gyojiController by lazy {
         GyojiVoiceController { intensity ->
-            co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: gyoji playHakkeyoi requested intensity=$intensity" }
             scope.launch(Dispatchers.Default) {
                 soundAndVibration.hakkeyoiFeedback(intensity)
             }
@@ -88,9 +86,6 @@ class GameViewModel(
     private var simpleHakkeyoiCount = 0
 
     private fun simpleResetStall() {
-        if (simpleStalledFor > 0f) {
-            Logger.d { "GameViewModel: simpleResetStall — movement resumed, clearing stall (was ${"%.2f".format(simpleStalledFor)}s)" }
-        }
         simpleStalledFor = 0f
         simpleTimeUntilNextHakkeyoi = Float.POSITIVE_INFINITY
         simpleHakkeyoiCount = 0
@@ -117,7 +112,6 @@ class GameViewModel(
     }
 
     init {
-        co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel init" }
         scope.launch {
             _state.distinctUntilChangedBy { it.events }
                 .collect { gameState ->
@@ -132,21 +126,15 @@ class GameViewModel(
                 }
         }
 
-        // Ensure gyojiController is constructed early so its logs appear in startup
-        // (it is lazy to avoid work until VM created; force-init here).
-        co.touchlab.kermit.Logger.d { "PFASOUND - Forcing gyojiController init" }
-        val _forceGyoji = gyojiController
-
         // Debug: optional direct test that bypasses the controller and invokes
         // the hakkeyoi feedback/play path once at startup. Useful to confirm
         // the feedback->SoundAndVibrate path is working.
         if (DIRECT_HAKKEYOI_TEST) {
-            scope.launch(Dispatchers.Default) {
-                co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: direct hakkeyoi test (startup)" }
-                try {
-                    soundAndVibration.hakkeyoiFeedback(1)
+                scope.launch(Dispatchers.Default) {
+                    try {
+                        soundAndVibration.hakkeyoiFeedback(1)
                 } catch (t: Throwable) {
-                    co.touchlab.kermit.Logger.e { "PFASOUND - GameViewModel: direct hakkeyoi test threw: ${t.message}" }
+                    Logger.e { "PFASOUND - GameViewModel: direct hakkeyoi test threw: ${t.message}" }
                 }
             }
         }
@@ -212,11 +200,6 @@ class GameViewModel(
 
                 gyojiController.update(deltaSeconds, rawActivity, touching, boutFinished, wrestlerFalling)
 
-                // Debug per-frame (only when touching to limit noise)
-                co.touchlab.kermit.Logger.d {
-                    "PFASOUND - Frame: touching=$touching currentDist=${"%.2f".format(currentDist)} threshold=${"%.2f".format(world.topRikishi.radius + world.bottomRikishi.radius + 0.1f)} playState=${state.value.playState} boutFinished=$boutFinished rawActivity=${"%.3f".format(rawActivity)} topPxPerSec=${"%.1f".format(topPxPerSec)} bottomPxPerSec=${"%.1f".format(bottomPxPerSec)} simpleStalledFor=${"%.2f".format(simpleStalledFor)}"
-                }
-
                 // --- Fallback simple stall detector (pixel-based) ---
                 // Tracks low-movement stalls in case normalized activity thresholds
                 // don't match the physical scale on some devices.
@@ -232,13 +215,9 @@ class GameViewModel(
 
                 // Simple stall state stored in GameViewModel fields (lazy init below)
                 if (boutFinished) {
-                    if (simpleStalledFor > 0f) co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: boutFinished — resetting simple stall state" }
                     simpleResetStall()
                 } else {
                     val proximityOrTouch = (touching || proximity)
-                    if (proximity && !touching) {
-                        co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: using proximity-based simple detector (dist=${"%.1f".format(currentDist)}, threshold=${"%.1f".format(world.topRikishi.radius + world.bottomRikishi.radius + proximityMarginPx)})" }
-                    }
 
                     if (proximityOrTouch && topPxPerSec <= pixelStillThreshold && bottomPxPerSec <= pixelStillThreshold) {
                         val wasStalled = simpleStalledFor > 0f
@@ -248,8 +227,7 @@ class GameViewModel(
                         val confirmationThreshold = 1.6f
                         if (!wasStalled && simpleStalledFor >= confirmationThreshold) {
                             // First hakkeyoi delay: 0.4–1.1s after stall confirmation
-                            simpleTimeUntilNextHakkeyoi = 0.4f + kotlin.random.Random.nextFloat() * (1.1f - 0.4f)
-                            co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: stall confirmed, scheduling first simple hakkeyoi in ${"%.2f".format(simpleTimeUntilNextHakkeyoi)}s" }
+                            simpleTimeUntilNextHakkeyoi = 0.4f + Random.nextFloat() * (1.1f - 0.4f)
                         }
 
                         // Decrease timer if scheduled
@@ -258,21 +236,16 @@ class GameViewModel(
                         }
 
                         if (simpleTimeUntilNextHakkeyoi <= 0f) {
-                            // Debug log scheduling/play
-                            co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: simple hakkeyoi play triggered (count=${simpleHakkeyoiCount + 1}, stalledFor=${"%.2f".format(simpleStalledFor)}s)" }
                             // play a gentle hakkeyoi
                             scope.launch(Dispatchers.Default) {
-                                co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: invoking hakkeyoiFeedback (simple detector)" }
                                 soundAndVibration.hakkeyoiFeedback(1)
                             }
                             simpleHakkeyoiCount++
                             // schedule next between 1.8–3.5s
                             simpleTimeUntilNextHakkeyoi = 1.8f + kotlin.random.Random.nextFloat() * (3.5f - 1.8f)
-                            co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: next simple hakkeyoi in ${"%.2f".format(simpleTimeUntilNextHakkeyoi)}s" }
                             // occasionally insert a longer pause after several calls
                             if (simpleHakkeyoiCount >= 4 && kotlin.random.Random.nextFloat() < 0.3f) {
                                 simpleTimeUntilNextHakkeyoi = 3.5f + kotlin.random.Random.nextFloat() * (5.0f - 3.5f)
-                                co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: inserting longer pause, next in ${"%.2f".format(simpleTimeUntilNextHakkeyoi)}s" }
                                 simpleHakkeyoiCount = 0
                             }
                         }
@@ -291,7 +264,6 @@ class GameViewModel(
                     val ui = if (touching != prevTouching) {
                         val topImage = if (touching) Res.drawable.rikishi_blue_push else Res.drawable.rikishi_blue
                         val bottomImage = if (touching) Res.drawable.rikishi_red_push else Res.drawable.rikishi_red
-                        co.touchlab.kermit.Logger.d { "PFASOUND - GameViewModel: Rikishi touching state changed! touching=$touching topImage=$topImage bottomImage=$bottomImage" }
                         state.ui.copy(
                             topThumbView = state.ui.topThumbView.copy(foregroundImage = topImage),
                             bottomThumbView = state.ui.bottomThumbView.copy(foregroundImage = bottomImage),
@@ -588,5 +560,3 @@ class GameViewModel(
         }
     }
 }
-
-private val CLASH_FEEDBACK_COOLDOWN = 500.milliseconds

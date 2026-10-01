@@ -9,10 +9,6 @@ import com.google.firebase.ktx.Firebase
 actual class KMAnalytics {
     private val analytics = Firebase.analytics
 
-    actual fun logEvent(event: KMEvent) {
-        analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {}
-    }
-
     actual fun logScreenView(screenName: String) {
         analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
             param(FirebaseAnalytics.Param.SCREEN_NAME, screenName)

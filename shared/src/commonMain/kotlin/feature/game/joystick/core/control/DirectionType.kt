@@ -1,8 +1,5 @@
 package feature.game.joystick.core.control
 
-import feature.game.joystick.extensions.firstOrdinal
-import kotlin.jvm.JvmStatic
-
 /**
  * The type that will determine how many directions the control will be able to return.
  */
@@ -18,17 +15,6 @@ enum class DirectionType {
      * [Direction.Right], [Direction.Down], [Direction.Left], [Direction.Up] and [Direction.None]
      */
     Simple;
-
-    companion object {
-        /**
-         * @param id The id for the enum value
-         * @return The enum value for the given id. If not found, returns the value [Complete].
-         */
-        @JvmStatic
-        fun fromId(id: Int): DirectionType {
-            return entries.firstOrdinal(id, Complete)
-        }
-    }
 }
 
 /**

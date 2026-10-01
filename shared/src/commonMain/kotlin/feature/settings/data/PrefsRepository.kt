@@ -61,11 +61,6 @@ class PrefsRepository(
         return settings.getBoolean(PREF_KEY_FULL_CONTACT, false)
     }
 
-    fun setFullContactEnabled(enabled: Boolean) {
-        settings.putBoolean(PREF_KEY_FULL_CONTACT, enabled)
-        refreshSwitchPreferences()
-    }
-
     fun clear() {
         settings.clear()
         refreshSwitchPreferences()

@@ -31,25 +31,10 @@ class JoystickEventsHolder(
     }
 
     /**
-     * Emits a move event to the shared flow.
-     */
-    suspend fun emitMove() {
-        _events.emit(state.toMoveEvent())
-    }
-
-
-    /**
      * Emits an end event to the shared flow.
      */
     suspend fun emitEnd() {
         _events.emit(state.toEndEvent())
-    }
-
-    /**
-     * Emits a held event to the shared flow.
-     */
-    suspend fun emitHeld() {
-        _events.emit(state.toHeldEvent())
     }
 
     /**

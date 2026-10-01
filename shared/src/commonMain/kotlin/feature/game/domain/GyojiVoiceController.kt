@@ -37,12 +37,6 @@ class GyojiVoiceController(
         boutFinished: Boolean,
         wrestlerFalling: Boolean,
     ) {
-        // Debug: log incoming parameters each update so we can trace why stalls
-        // are not reaching the hakkeyoi play path.
-        co.touchlab.kermit.Logger.d {
-            "PFASOUND - GyojiVoiceController.update: delta=${"%.3f".format(deltaSeconds)} rawActivity=${"%.3f".format(rawActivity)} touching=$wrestlersTouching boutFinished=$boutFinished wrestlerFalling=$wrestlerFalling smoothedActivity=${"%.3f".format(smoothedActivity)} collisionImpulse=${"%.3f".format(collisionImpulse)}"
-        }
-
         if (boutFinished || wrestlerFalling || !wrestlersTouching) {
             resetHakkeyoiState()
             return
@@ -51,7 +45,7 @@ class GyojiVoiceController(
         val activityWithCollisions = rawActivity + collisionImpulse * collisionWeight
 
         // smooth activity to prevent flicker
-        smoothedActivity = lerp(smoothedActivity, activityWithCollisions, 0.15f)
+        smoothedActivity += (activityWithCollisions - smoothedActivity) * 0.15f
 
         // decay collision impulse
         collisionImpulse = (collisionImpulse - deltaSeconds * 1.5f).coerceAtLeast(0f)
@@ -73,16 +67,12 @@ class GyojiVoiceController(
         when (state) {
             BoutState.ACTIVE, BoutState.STRUGGLING -> stalledFor = 0f
             BoutState.STALLED -> {
-                // Debug: report smoothed activity and time until hakkeyoi so we can trace why it didn't fire
-                co.touchlab.kermit.Logger.d { "GyojiVoiceController: update STALLED smoothedActivity=${"%.3f".format(smoothedActivity)} stalledFor=${"%.2f".format(stalledFor)}s timeUntilNextHakkeyoi=${"%.2f".format(timeUntilNextHakkeyoi)}s" }
                 updateStalledState(deltaSeconds)
             }
         }
     }
 
     private fun onStateChanged(oldState: BoutState, newState: BoutState) {
-        // Debug: state transitions
-        co.touchlab.kermit.Logger.d { "PFASOUND - GyojiVoiceController: state change $oldState -> $newState (smoothedActivity=${"%.3f".format(smoothedActivity)})" }
         if (newState == BoutState.STALLED) {
             stalledFor = 0f
             hakkeyoiCount = 0
@@ -106,8 +96,6 @@ class GyojiVoiceController(
             else -> 1
         }
 
-        // Debug: log when gyoji decides to call hakkeyoi
-        co.touchlab.kermit.Logger.d { "PFASOUND - GyojiVoiceController: playing hakkeyoi intensity=$intensity stalledFor=${"%.2f".format(stalledFor)}s" }
         playHakkeyoi(intensity)
         hakkeyoiCount++
 
@@ -126,7 +114,6 @@ class GyojiVoiceController(
     }
 
     private fun resetHakkeyoiState() {
-        co.touchlab.kermit.Logger.d { "PFASOUND - GyojiVoiceController: resetHakkeyoiState called (smoothedActivity=${"%.3f".format(smoothedActivity)}, hakkeyoiCount=$hakkeyoiCount, timeUntilNextHakkeyoi=${"%.2f".format(timeUntilNextHakkeyoi)}s)" }
         state = BoutState.ACTIVE
         stalledFor = 0f
         hakkeyoiCount = 0
@@ -134,6 +121,5 @@ class GyojiVoiceController(
         collisionImpulse = 0f
     }
 
-    private fun lerp(from: Float, to: Float, amount: Float): Float = from + (to - from) * amount
     private fun randomBetween(minimum: Float, maximum: Float): Float = minimum + Random.nextFloat() * (maximum - minimum)
 }

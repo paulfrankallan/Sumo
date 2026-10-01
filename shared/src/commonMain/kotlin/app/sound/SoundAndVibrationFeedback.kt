@@ -27,15 +27,6 @@ class SoundAndVibrationFeedback(
         }
     }
 
-    fun pressFeedback(soundResource: String) {
-        if (preferences.isSoundEnabled()) {
-            soundAndVibrate.playSound(soundResource)
-        }
-        if (preferences.isVibrateEnabled()) {
-            soundAndVibrate.vibrate()
-        }
-    }
-
     fun gameOverFeedback() {
         if (preferences.isSoundEnabled()) {
             soundAndVibrate.playSound(

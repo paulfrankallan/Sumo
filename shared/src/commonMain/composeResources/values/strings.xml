@@ -1,25 +1,10 @@
 <resources>
-    <string name="app_name">Sumo</string>
-    <string name="home_screen_title_start">Finger</string>
-    <string name="home_screen_title_end">Twist</string>
     <string name="back">Back</string>
-    
-    <!-- Main Menu Options -->
-    <string name="main_menu_fight">FIGHT</string>
-    
-    <!-- GameType Options -->
-    <string name="strength">Strength</string>
-    <string name="agility">Agility</string>
-    <string name="focus">Focus</string>
     
     <!-- Game Screens -->
     <string name="screen_settings">Settings</string>
-    <string name="screen_instructions">Instructions</string>
-    <string name="i_declare_a_thumb_war">WE DECLARE SUMO!</string>
-    <string name="fight">FIGHT</string>
 
     <!-- Settings Screen -->
-    <string name="settings_title">Settings</string>
     <string name="settings_vibrate">Vibrate</string>
     <string name="settings_vibrate_description">Turn vibration on or off</string>
     <string name="settings_sound">Sound effects</string>

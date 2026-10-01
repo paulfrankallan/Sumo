@@ -11,19 +11,7 @@ actual class RemoteConfigProvider(
 
     init {
         remoteConfig.setDefaultsAsync(remoteConfigDefaults.defaults)
-        fetch()
-    }
-
-    actual fun fetch() {
         remoteConfig.fetchAndActivate()
-    }
-
-    actual fun getString(key: String): String? {
-        return remoteConfig.getString(key)
-    }
-
-    actual fun getInt(key: String): Int? {
-        return remoteConfig.getDouble(key).toInt()
     }
 
     actual fun getDouble(key: String): Double? {
@@ -33,6 +21,4 @@ actual class RemoteConfigProvider(
     actual fun getBoolean(key: String): Boolean? {
         return remoteConfig.getBoolean(key)
     }
-
-    actual fun getDefaults(): Map<String, Any> = remoteConfigDefaults.defaults
 }

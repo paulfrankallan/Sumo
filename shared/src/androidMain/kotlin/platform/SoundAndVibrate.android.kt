@@ -56,11 +56,6 @@ actual class SoundAndVibrate(
         }
         co.touchlab.kermit.Logger.i { "PFASOUND - SoundAndVibrate.android: playSound resource=$resourceId speed=$speed volume=$volume" }
 
-        // Debug: note when hakkeyoi resource is requested (no UI toast)
-        if (soundResource == RES_ID_HAKKEYOI) {
-            co.touchlab.kermit.Logger.d { "PFASOUND - SoundAndVibrate.android: hakkeyoi resource requested (debug)" }
-        }
-
         val player = MediaPlayer.create(appContext, resourceId)
         if (player == null) {
             co.touchlab.kermit.Logger.e { "PFASOUND - SoundAndVibrate.android: MediaPlayer.create returned null for resource=$resourceId" }

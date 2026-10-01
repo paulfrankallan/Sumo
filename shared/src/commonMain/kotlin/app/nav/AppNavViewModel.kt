@@ -102,9 +102,4 @@ class AppNavViewModel(
         }
     }
 
-    private fun navigateTo(navigationEvent: NavigationEvent) {
-        _state.update { state ->
-            state.copy(navigateTo = navigationEvent)
-        }
-    }
 }
