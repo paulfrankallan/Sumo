@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.sp
 import app.sound.SoundAndVibrationFeedback
 import app.theme.AppColor
 import app.util.CountUpTimer
+import co.touchlab.kermit.Logger
 import feature.common.events.GameOverEvent
 import feature.common.model.Position
 import feature.common.presentation.CMViewModel
@@ -87,7 +88,9 @@ class GameViewModel(
     private var simpleHakkeyoiCount = 0
 
     private fun simpleResetStall() {
-        if (simpleStalledFor > 0f) co.touchlab.kermit.Logger.d { "GameViewModel: simpleResetStall — movement resumed, clearing stall (was ${"%.2f".format(simpleStalledFor)}s)" }
+        if (simpleStalledFor > 0f) {
+            Logger.d { "GameViewModel: simpleResetStall — movement resumed, clearing stall (was ${"%.2f".format(simpleStalledFor)}s)" }
+        }
         simpleStalledFor = 0f
         simpleTimeUntilNextHakkeyoi = Float.POSITIVE_INFINITY
         simpleHakkeyoiCount = 0

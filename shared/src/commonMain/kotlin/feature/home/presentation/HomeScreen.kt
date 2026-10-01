@@ -7,9 +7,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Scaffold
@@ -40,7 +38,7 @@ import sumo.shared.generated.resources.home_bg
 import sumo.shared.generated.resources.home_sumo_hero
 import sumo.shared.generated.resources.start_btn
 import sumo.shared.generated.resources.start_btn_rip
-import sumo.shared.generated.resources.sumo_title_2
+import sumo.shared.generated.resources.sumo_title
 
 @Composable
 fun HomeScreen(
@@ -126,7 +124,7 @@ fun HomeContent(
                     contentScale = ContentScale.Fit,
                 )
                 Image(
-                    painter = painterResource(Res.drawable.sumo_title_2),
+                    painter = painterResource(Res.drawable.sumo_title),
                     contentDescription = null,
                     modifier = Modifier
                         .width(222.dp),
