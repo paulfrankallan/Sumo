@@ -7,6 +7,7 @@ import feature.game.domain.physics.PhysicsEngine
 import feature.game.domain.physics.PhysicsEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,15 @@ class GameLoop(
 
     /** Latest physics world state. Null until [start] is called. */
     val worldState: StateFlow<GameWorld?> = _worldState.asStateFlow()
+
+    private val _worldFrames = MutableSharedFlow<GameWorld>(
+        replay = 1,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /** Every physics frame, including frames whose world positions are unchanged. */
+    val worldFrames: SharedFlow<GameWorld> = _worldFrames.asSharedFlow()
 
     private val _physicsEvents = MutableSharedFlow<PhysicsEvent>(extraBufferCapacity = 64)
 
@@ -74,6 +84,7 @@ class GameLoop(
                 val result = physics.step(world, commands)
                 world = result.world
                 _worldState.value = world
+                _worldFrames.emit(world)
                 result.events.forEach { _physicsEvents.tryEmit(it) }
                 val elapsedMs = frameStart.elapsedNow().inWholeMilliseconds
                 val remaining = tickMs - elapsedMs

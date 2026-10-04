@@ -1,6 +1,5 @@
 package app.sound
 
-import co.touchlab.kermit.Logger
 import com.russhwolf.settings.ExperimentalSettingsApi
 import feature.settings.data.PrefsRepository
 import platform.RES_ID_DIE_1
@@ -16,11 +15,6 @@ class SoundAndVibrationFeedback(
     private val preferences: PrefsRepository,
     private val soundAndVibrate: SoundAndVibrate,
 ) {
-    // Temporary debug toggle: when true, force playback of hakkeyoi even if
-    // user sound preferences are disabled. Intended for local debugging only.
-    companion object {
-        var FORCE_HAKKEYOI_DEBUG = true
-    }
     fun clashFeedback(duration: Long = 100) {
         if (preferences.isVibrateEnabled()) {
             soundAndVibrate.vibrate(duration)
@@ -61,7 +55,7 @@ class SoundAndVibrationFeedback(
      * and volume slightly so the single asset sounds more natural when repeated.
      */
     fun hakkeyoiFeedback(intensity: Int = 1) {
-        if (!preferences.isSoundEnabled() && !FORCE_HAKKEYOI_DEBUG) return
+        if (!preferences.isSoundEnabled()) return
         val clamped = intensity.coerceIn(1, 3)
         val sMin: Double
         val sMax: Double
@@ -80,7 +74,6 @@ class SoundAndVibrationFeedback(
         }
         val speed = (sMin..sMax).random().toFloat()
         val volume = (vMin..vMax).random().toFloat().coerceIn(0f, 1f)
-        Logger.i { "PFASOUND - SoundAndVibrationFeedback: hakkeyoi requested intensity=$clamped speed=$speed volume=$volume" }
         soundAndVibrate.playSound(RES_ID_HAKKEYOI, speed = speed, volume = volume)
     }
 }

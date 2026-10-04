@@ -3,25 +3,40 @@
 Improve the gameplay by adding random power-ups. First player to tap the power-up gets something.
 
 
+Hakkeyoi Feature
+
+Trigger rule options:
+
+Just at random intervals during gameplay.
+
+Trigger rules for playing Hakkeyoi sound effect:
+Both Rikishi haven't moved more than 5dp or equivalent px in space in random of 3 to 10 seconds time.
+Currently the Hakkeyoi sound effect only plays when the game starts but I can hear it
+so I know the sound is wired up and working. I want it to play during gameplay when the above trigger rules are met.
+
 TODO
 
 * App icon - Done
-* Game graphics
-* App theme
+* App theme -
 * Create AdMob app - Done
-* Ad IDs
-* Home screen
+* Ad IDs -
+* Home screen - Done
 * Instructions screen
 * Settings screen -
 * Privacy policy - Done
-* Game Controls -
-
+* Game JoyPad Controls - Done
+* Game Over Winner Scrim -
+* Power ups feature -
+* Animatable Rikishi red, blue, red_pushing, blue_pushing -
 
 * Crowd cheering sound effect
     - louder when a Rikishi is near the edge of the ring
     - louder when a Rikishi is thrown out of the ring
 
+What other Sumo related mechanisms, symbols, traditions, gimmicks, processes, actions, things, etc,
+would or could translate well to this 2 player Sumo Android mobile game?
 
+E.g. ideas so far: Gunbai — 軍配 — Sumo referee's fan, or 力 — Chikara — “Strength / Power” for power-ups?
 
 Gyōji = referee in the ring.
 Shimpan = judges around the ring who can overrule the Gyōji.

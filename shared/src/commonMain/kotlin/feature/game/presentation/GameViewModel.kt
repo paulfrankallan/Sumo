@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.sp
 import app.sound.SoundAndVibrationFeedback
 import app.theme.AppColor
 import app.util.CountUpTimer
-import co.touchlab.kermit.Logger
 import feature.common.events.GameOverEvent
 import feature.common.model.Position
 import feature.common.presentation.CMViewModel
@@ -41,7 +40,6 @@ import sumo.shared.generated.resources.rikishi_blue_push
 import sumo.shared.generated.resources.rikishi_red
 import sumo.shared.generated.resources.rikishi_red_push
 import sumo.shared.generated.resources.winner
-import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
 class GameViewModel(
@@ -50,11 +48,6 @@ class GameViewModel(
     private val soundAndVibration: SoundAndVibrationFeedback,
     val gameLoop: GameLoop = GameLoop(),
 ) : CMViewModel<GameState, Intent>() {
-    companion object {
-        // One-shot direct test to bypass the controller and exercise the
-        // feedback->platform audio path. Set to false to disable after testing.
-        var DIRECT_HAKKEYOI_TEST = true
-    }
     private var gameId: String? = null
     private var startGameCountdownTimerJob: Job? = null
     // Per-player flags prevent double damage to the same player in one reset cycle
@@ -64,32 +57,16 @@ class GameViewModel(
     // Tracks whether a clash vibration has been emitted since the last health damage.
     private var hasVibratedSinceDamage = false
 
-    // Gyoji voice controller and cached positions for activity estimation.
     private val gyojiController by lazy {
-        GyojiVoiceController { intensity ->
+        GyojiVoiceController {
             scope.launch(Dispatchers.Default) {
-                soundAndVibration.hakkeyoiFeedback(intensity)
+                soundAndVibration.hakkeyoiFeedback()
             }
         }
     }
 
-    // Previous positions used to estimate movement/velocity.
-    private var prevTopPos: Offset? = null
-    private var prevBottomPos: Offset? = null
-    
-    // Track previous touching state to detect transitions
+    // Tracks touching state to avoid recreating the push UI on every game tick.
     private var prevTouching = false
-
-    // Simple fallback stall detector state (pixel-based)
-    private var simpleStalledFor = 0f
-    private var simpleTimeUntilNextHakkeyoi = Float.POSITIVE_INFINITY
-    private var simpleHakkeyoiCount = 0
-
-    private fun simpleResetStall() {
-        simpleStalledFor = 0f
-        simpleTimeUntilNextHakkeyoi = Float.POSITIVE_INFINITY
-        simpleHakkeyoiCount = 0
-    }
 
     // Single shared position reset — both Rikishi always return to start together.
     private val _resetThumbPositions = mutableStateOf(false)
@@ -126,137 +103,21 @@ class GameViewModel(
                 }
         }
 
-        // Debug: optional direct test that bypasses the controller and invokes
-        // the hakkeyoi feedback/play path once at startup. Useful to confirm
-        // the feedback->SoundAndVibrate path is working.
-        if (DIRECT_HAKKEYOI_TEST) {
-                scope.launch(Dispatchers.Default) {
-                    try {
-                        soundAndVibration.hakkeyoiFeedback(1)
-                } catch (t: Throwable) {
-                    Logger.e { "PFASOUND - GameViewModel: direct hakkeyoi test threw: ${t.message}" }
-                }
-            }
-        }
-
-        // Subscribe to game loop world state → update render positions in GameState and feed the gyoji.
+        // Subscribe to the latest world state for rendering.
         scope.launch {
             gameLoop.worldState.filterNotNull().collect { world ->
-                val deltaSeconds = GameLoop.TICK_MS / 1000f
-
                 val topPos = world.topRikishi.position
                 val bottomPos = world.bottomRikishi.position
 
-                val prevTop = prevTopPos
-                val prevBottom = prevBottomPos
-
-                // Distance moved this frame (linear displacement)
-                val topMove = if (prevTop != null) {
-                    val dx = topPos.x - prevTop.x
-                    val dy = topPos.y - prevTop.y
-                    kotlin.math.sqrt(dx * dx + dy * dy)
-                } else 0f
-
-                val bottomMove = if (prevBottom != null) {
-                    val dx = bottomPos.x - prevBottom.x
-                    val dy = bottomPos.y - prevBottom.y
-                    kotlin.math.sqrt(dx * dx + dy * dy)
-                } else 0f
-
-                // Change in inter-rikishi distance (struggle)
-                val prevDist = if (prevTop != null && prevBottom != null) {
-                    val dx = prevTop.x - prevBottom.x
-                    val dy = prevTop.y - prevBottom.y
-                    kotlin.math.sqrt(dx * dx + dy * dy)
-                } else null
-
-                val currentDist = run {
-                    val dx = topPos.x - bottomPos.x
-                    val dy = topPos.y - bottomPos.y
-                    kotlin.math.sqrt(dx * dx + dy * dy)
-                }
-
-                val distanceChange = if (prevDist != null) kotlin.math.abs(currentDist - prevDist) else 0f
-
-                // Normalize movement by arena radius so thresholds are unitless.
-                val arenaRadius = world.arena.radius.coerceAtLeast(1f)
-                val topRelSpeed = (topMove / deltaSeconds) / arenaRadius
-                val bottomRelSpeed = (bottomMove / deltaSeconds) / arenaRadius
-                val struggleComponent = (distanceChange / arenaRadius)
-
-                val rawActivity = topRelSpeed + bottomRelSpeed + struggleComponent
+                val horizontalDistance = topPos.x - bottomPos.x
+                val verticalDistance = topPos.y - bottomPos.y
+                val currentDist = kotlin.math.sqrt(
+                    horizontalDistance * horizontalDistance + verticalDistance * verticalDistance
+                )
 
                 // Are they touching/gripping? Use small epsilon to account for float math.
                 val threshold = world.topRikishi.radius + world.bottomRikishi.radius + 1.0f
                 val touching = currentDist <= threshold
-
-                // Bout finished or falling
-                val boutFinished = state.value.isGameOver || state.value.playState != PlayState.IN_PROGRESS
-                val wrestlerFalling = false
-
-                // Pixel-speed used for fallback
-                val topPxPerSec = (topMove / deltaSeconds)
-                val bottomPxPerSec = (bottomMove / deltaSeconds)
-
-                gyojiController.update(deltaSeconds, rawActivity, touching, boutFinished, wrestlerFalling)
-
-                // --- Fallback simple stall detector (pixel-based) ---
-                // Tracks low-movement stalls in case normalized activity thresholds
-                // don't match the physical scale on some devices.
-                // Pixel-speed threshold (px/sec) below which we consider 'still'.
-                val pixelStillThreshold = 20f
-
-                // Additionally consider proximity even when strict 'touching' is false
-                // (small separation due to animation/physics). This is intentionally
-                // conservative and only affects hakkeyoi audio; game mechanics remain
-                // unchanged.
-                val proximityMarginPx = 24f
-                val proximity = currentDist <= (world.topRikishi.radius + world.bottomRikishi.radius + proximityMarginPx)
-
-                // Simple stall state stored in GameViewModel fields (lazy init below)
-                if (boutFinished) {
-                    simpleResetStall()
-                } else {
-                    val proximityOrTouch = (touching || proximity)
-
-                    if (proximityOrTouch && topPxPerSec <= pixelStillThreshold && bottomPxPerSec <= pixelStillThreshold) {
-                        val wasStalled = simpleStalledFor > 0f
-                        simpleStalledFor += deltaSeconds
-
-                        // If we've just confirmed a stall, schedule the first hakkeyoi shortly after.
-                        val confirmationThreshold = 1.6f
-                        if (!wasStalled && simpleStalledFor >= confirmationThreshold) {
-                            // First hakkeyoi delay: 0.4–1.1s after stall confirmation
-                            simpleTimeUntilNextHakkeyoi = 0.4f + Random.nextFloat() * (1.1f - 0.4f)
-                        }
-
-                        // Decrease timer if scheduled
-                        if (simpleTimeUntilNextHakkeyoi.isFinite()) {
-                            simpleTimeUntilNextHakkeyoi -= deltaSeconds
-                        }
-
-                        if (simpleTimeUntilNextHakkeyoi <= 0f) {
-                            // play a gentle hakkeyoi
-                            scope.launch(Dispatchers.Default) {
-                                soundAndVibration.hakkeyoiFeedback(1)
-                            }
-                            simpleHakkeyoiCount++
-                            // schedule next between 1.8–3.5s
-                            simpleTimeUntilNextHakkeyoi = 1.8f + kotlin.random.Random.nextFloat() * (3.5f - 1.8f)
-                            // occasionally insert a longer pause after several calls
-                            if (simpleHakkeyoiCount >= 4 && kotlin.random.Random.nextFloat() < 0.3f) {
-                                simpleTimeUntilNextHakkeyoi = 3.5f + kotlin.random.Random.nextFloat() * (5.0f - 3.5f)
-                                simpleHakkeyoiCount = 0
-                            }
-                        }
-                    } else {
-                        simpleResetStall()
-                    }
-                }
-
-                // persist positions for next frame
-                prevTopPos = topPos
-                prevBottomPos = bottomPos
 
                 // Update UI state - ALWAYS update positions and only update images when touching state changes
                 _state.update { state ->
@@ -285,6 +146,18 @@ class GameViewModel(
                 }
                 
                 prevTouching = touching
+            }
+        }
+
+        // StateFlow suppresses equal worlds while the Rikishi are idle, so use the
+        // per-frame stream to keep the Hakkeyoi timer advancing during a stall.
+        scope.launch {
+            gameLoop.worldFrames.collect { world ->
+                gyojiController.update(
+                    topPosition = world.topRikishi.position,
+                    bottomPosition = world.bottomRikishi.position,
+                    boutInProgress = state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver,
+                )
             }
         }
 
@@ -324,11 +197,6 @@ class GameViewModel(
                         }
                     }
                     is PhysicsEvent.RikishiCollision -> {
-                        // Inform the gyoji controller about a recent collision impulse.
-                        try {
-                            gyojiController.onCollision(1.0f)
-                        } catch (_: Throwable) { }
-
                         val currentState = state.value
                         if (currentState.playState == PlayState.IN_PROGRESS && !currentState.isGameOver) {
                             // Only vibrate on the first clash since the last health damage.
