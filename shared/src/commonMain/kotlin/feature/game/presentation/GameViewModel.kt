@@ -26,6 +26,7 @@ import feature.game.presentation.model.Player
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
@@ -48,8 +49,10 @@ class GameViewModel(
     private val soundAndVibration: SoundAndVibrationFeedback,
     val gameLoop: GameLoop = GameLoop(),
 ) : CMViewModel<GameState, Intent>() {
-    private var gameId: String? = null
     private var startGameCountdownTimerJob: Job? = null
+    private var startGameCountdownCompletionJob: Job? = null
+    private val gameSession = MutableStateFlow(0)
+    private var finalGameOverSoundPending = false
     // Per-player flags prevent double damage to the same player in one reset cycle
     // while still allowing both players to be damaged in the same cycle.
     private val isTopResettingAfterDamage = mutableStateOf(false)
@@ -59,7 +62,7 @@ class GameViewModel(
 
     private val gyojiController by lazy {
         GyojiVoiceController {
-            scope.launch(Dispatchers.Default) {
+            launchGameAudio {
                 soundAndVibration.hakkeyoiFeedback()
             }
         }
@@ -86,6 +89,54 @@ class GameViewModel(
             topRikishi = RikishiBody(state.topPlayer.id, centre - offset, rikishiRadius),
             bottomRikishi = RikishiBody(state.bottomPlayer.id, centre + offset, rikishiRadius),
         )
+    }
+
+    private fun isGameInProgress(): Boolean =
+        state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver
+
+    private fun launchGameAudio(playAudio: () -> Unit) {
+        val session = gameSession.value
+        scope.launch(Dispatchers.Default) {
+            if (session == gameSession.value && isGameInProgress()) {
+                playAudio()
+            }
+        }
+    }
+
+    private fun stopGameActivity() {
+        gameSession.update { it + 1 }
+        startGameCountdownTimerJob?.cancel()
+        startGameCountdownTimerJob = null
+        startGameCountdownCompletionJob?.cancel()
+        startGameCountdownCompletionJob = null
+        gyojiController.reset()
+        gameLoop.stop()
+        soundAndVibration.stopMusic(musicResourceId = RES_ID_MUSIC_3)
+        soundAndVibration.stopGameFeedback()
+    }
+
+    private fun deactivateGame(playFinalGameOverSound: Boolean = false) {
+        val shouldPlayFinalGameOverSound = playFinalGameOverSound && finalGameOverSoundPending
+        finalGameOverSoundPending = false
+        stopGameActivity()
+        _state.update { state ->
+            state.copy(
+                playState = PlayState.FINISHED,
+                startCountdownViewState = null,
+            )
+        }
+        if (shouldPlayFinalGameOverSound) {
+            launchFinalGameOverAudio()
+        }
+    }
+
+    private fun launchFinalGameOverAudio() {
+        val session = gameSession.value
+        scope.launch(Dispatchers.Default) {
+            if (session == gameSession.value && state.value.isGameOver) {
+                soundAndVibration.finalGameOverFeedback()
+            }
+        }
     }
 
     init {
@@ -167,6 +218,7 @@ class GameViewModel(
                 when (event) {
                     is PhysicsEvent.BoundaryViolation -> {
                         val currentState = state.value
+                        if (!isGameInProgress()) return@collect
                         val player = when (event.playerId) {
                             currentState.topPlayer.id -> currentState.topPlayer
                             currentState.bottomPlayer.id -> currentState.bottomPlayer
@@ -183,26 +235,30 @@ class GameViewModel(
                             // Reset clash vibration allowance — next clash should vibrate.
                             hasVibratedSinceDamage = false
 
-                            currentInitialWorld(currentState)?.let { gameLoop.reset(it) }
-                            // If the player was actively dragging when they hit the boundary,
-                            // block their drag input until the gesture ends — prevents the
-                            // in-flight drag from immediately pushing the Rikishi back out.
-                            if (player.thumbState == ThumbState.PRESSED) {
-                                gameLoop.blockDragForPlayer(player.id)
-                            }
-                            triggerResetThumbPositions()
-                            scope.launch(Dispatchers.Default) {
-                                soundAndVibration.gameOverFeedback()
+                            if (state.value.isGameOver) {
+                                finalGameOverSoundPending = true
+                                stopGameActivity()
+                            } else {
+                                currentInitialWorld(currentState)?.let { gameLoop.reset(it) }
+                                // If the player was actively dragging when they hit the boundary,
+                                // block their drag input until the gesture ends — prevents the
+                                // in-flight drag from immediately pushing the Rikishi back out.
+                                if (player.thumbState == ThumbState.PRESSED) {
+                                    gameLoop.blockDragForPlayer(player.id)
+                                }
+                                triggerResetThumbPositions()
+                                launchGameAudio {
+                                    soundAndVibration.gameOverFeedback()
+                                }
                             }
                         }
                     }
                     is PhysicsEvent.RikishiCollision -> {
-                        val currentState = state.value
-                        if (currentState.playState == PlayState.IN_PROGRESS && !currentState.isGameOver) {
+                        if (isGameInProgress()) {
                             // Only vibrate on the first clash since the last health damage.
                             if (!hasVibratedSinceDamage) {
                                 hasVibratedSinceDamage = true
-                                scope.launch(Dispatchers.Default) {
+                                launchGameAudio {
                                     soundAndVibration.clashFeedback()
                                 }
                             }
@@ -225,7 +281,11 @@ class GameViewModel(
         when (intent) {
             GameIntent.StartGame -> {
                 if (state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver) return
-                startGameCountdownTimerJob?.cancel()
+                finalGameOverSoundPending = false
+                stopGameActivity()
+                isTopResettingAfterDamage.value = false
+                isBottomResettingAfterDamage.value = false
+                hasVibratedSinceDamage = false
                 val newTopId = randomUUID()
                 val newBottomId = randomUUID()
                 _state.update { state ->
@@ -244,7 +304,6 @@ class GameViewModel(
                     val rikishiRadius = s.rikishiRadius
                     if (centre != null && arenaRadius != null && rikishiRadius != null) {
                         val offset = Offset(0f, arenaRadius * 0.55f)
-                        gameLoop.stop()
                         gameLoop.start(
                             GameWorld(
                                 arena = ArenaWorld(centre, arenaRadius),
@@ -274,17 +333,11 @@ class GameViewModel(
                         )
                     )
                 }
-                // Audio is I/O-bound — run off the Main thread to avoid blocking the UI.
-                scope.launch(Dispatchers.Default) {
-                    soundAndVibration.stopMusic(musicResourceId = RES_ID_MUSIC_3)
-                }
-                if (intent.result == null) return
-                if (gameId == null || gameId != state.value.gameId) {
-                    gameId = state.value.gameId
-                    scope.launch(Dispatchers.Default) {
-                        soundAndVibration.gameOverFeedback()
-                    }
-                }
+                deactivateGame(playFinalGameOverSound = intent.result != null)
+            }
+
+            GameIntent.StopGame -> {
+                deactivateGame()
             }
 
             is GameIntent.PlayerDamaged -> {
@@ -298,19 +351,24 @@ class GameViewModel(
                     // Damage happened — allow the next clash to vibrate.
                     hasVibratedSinceDamage = false
 
-                    currentInitialWorld(state.value)?.let { gameLoop.reset(it) }
-                    val currentPlayer = if (isTop) state.value.topPlayer else state.value.bottomPlayer
-                    if (currentPlayer.thumbState == ThumbState.PRESSED) {
-                        gameLoop.blockDragForPlayer(intent.player.id)
-                    }
-                    // Only the first player to be damaged this cycle triggers the shared
-                    // reset — both positions always reset together. The second player's
-                    // damage is still applied to their health; they ride the same reset.
-                    val otherAlreadyResetting = if (isTop) isBottomResettingAfterDamage.value
-                                                else isTopResettingAfterDamage.value
-                    if (!otherAlreadyResetting) triggerResetThumbPositions()
-                    scope.launch(Dispatchers.Default) {
-                        soundAndVibration.gameOverFeedback()
+                    if (state.value.isGameOver) {
+                        finalGameOverSoundPending = true
+                        stopGameActivity()
+                    } else {
+                        currentInitialWorld(state.value)?.let { gameLoop.reset(it) }
+                        val currentPlayer = if (isTop) state.value.topPlayer else state.value.bottomPlayer
+                        if (currentPlayer.thumbState == ThumbState.PRESSED) {
+                            gameLoop.blockDragForPlayer(intent.player.id)
+                        }
+                        // Only the first player to be damaged this cycle triggers the shared
+                        // reset — both positions always reset together. The second player's
+                        // damage is still applied to their health; they ride the same reset.
+                        val otherAlreadyResetting = if (isTop) isBottomResettingAfterDamage.value
+                                                    else isTopResettingAfterDamage.value
+                        if (!otherAlreadyResetting) triggerResetThumbPositions()
+                        launchGameAudio {
+                            soundAndVibration.gameOverFeedback()
+                        }
                     }
                 }
             }
@@ -385,44 +443,56 @@ class GameViewModel(
         }
     }
 
+    override fun onCleared() {
+        finalGameOverSoundPending = false
+        stopGameActivity()
+        super.onCleared()
+    }
+
     private fun invokeGameStartCountdownTimer() {
+        val session = gameSession.value
         startGameCountdownTimerJob = CountUpTimer()(
             startDelayMillis = 1L,
             start = 0,
             end = 0,
             onTick = {
                 scope.launch {
-                    _state.update { state ->
-                        val done = it == 0
-                        state.copy(
-                            startCountdownViewState = StartCountdownViewState(
-                                text = if (done) "FIGHT" else it.toString(),
-                                textColor = AppColor.BLOOD_RED.color,
-                                textSize = if (done) 48.sp else 192.sp,
-                            ),
-                        )
+                    if (session == gameSession.value) {
+                        _state.update { state ->
+                            val done = it == 0
+                            state.copy(
+                                startCountdownViewState = StartCountdownViewState(
+                                    text = if (done) "FIGHT" else it.toString(),
+                                    textColor = AppColor.BLOOD_RED.color,
+                                    textSize = if (done) 48.sp else 192.sp,
+                                ),
+                            )
+                        }
                     }
                 }
             },
             onComplete = {
-                delayedFinish {
-                    _state.update { state ->
-                        state.copy(
-                            startCountdownViewState = null,
-                            playState = PlayState.IN_PROGRESS,
-                        )
-                    }
-                    // Audio off Main thread.
-                    scope.launch(Dispatchers.Default) {
-                        soundAndVibration.startMusic(musicResourceId = RES_ID_MUSIC_3)
+                if (session == gameSession.value) {
+                    startGameCountdownCompletionJob = delayedFinish {
+                        if (session == gameSession.value) {
+                            _state.update { state ->
+                                state.copy(
+                                    startCountdownViewState = null,
+                                    playState = PlayState.IN_PROGRESS,
+                                )
+                            }
+                            launchGameAudio {
+                                soundAndVibration.startMusic(musicResourceId = RES_ID_MUSIC_3)
+                            }
+                        }
                     }
                 }
             }
         )
     }
 
-    private fun delayedFinish(finishFunction: () -> Unit) {
-        scope.launch {
+    private fun delayedFinish(finishFunction: () -> Unit): Job {
+        return scope.launch {
             delay(2000.milliseconds)
             finishFunction()
         }

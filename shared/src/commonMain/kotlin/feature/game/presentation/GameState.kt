@@ -66,6 +66,7 @@ enum class PlayState {
 
 sealed class GameIntent : Intent {
     data object StartGame : GameIntent()
+    data object StopGame : GameIntent()
     data class GameOver(val result: GameOverResult? = null) : GameIntent()
     data class PlayerDamaged(val player: Player) : GameIntent()
     data class PressStateChanged(val isPressed: Boolean, val player: Player) : GameIntent()

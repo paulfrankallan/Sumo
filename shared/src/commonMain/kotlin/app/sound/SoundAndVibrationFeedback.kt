@@ -8,6 +8,7 @@ import platform.RES_ID_DIE_3
 import platform.RES_ID_DIE_4
 import platform.RES_ID_DIE_5
 import platform.RES_ID_HAKKEYOI
+import platform.RES_ID_SHOBUARI_GAME_OVER
 import platform.SoundAndVibrate
 
 @OptIn(ExperimentalSettingsApi::class)
@@ -47,6 +48,25 @@ class SoundAndVibrationFeedback(
 
     fun stopMusic(musicResourceId: String) {
         soundAndVibrate.stopSound(musicResourceId)
+    }
+
+    fun finalGameOverFeedback() {
+        if (preferences.isSoundEnabled()) {
+            soundAndVibrate.playSound(RES_ID_SHOBUARI_GAME_OVER)
+        }
+    }
+
+    fun stopGameFeedback() {
+        soundAndVibrate.stopSound(RES_ID_HAKKEYOI)
+        soundAndVibrate.stopSound(RES_ID_SHOBUARI_GAME_OVER)
+        listOf(
+            RES_ID_DIE_1,
+            RES_ID_DIE_2,
+            RES_ID_DIE_3,
+            RES_ID_DIE_4,
+            RES_ID_DIE_5,
+        ).forEach(soundAndVibrate::stopSound)
+        soundAndVibrate.cancelVibration()
     }
 
     /**

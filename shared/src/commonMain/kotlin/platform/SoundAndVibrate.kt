@@ -8,4 +8,5 @@ expect class SoundAndVibrate {
     // New overload allows subtle pitch/speed & volume variation for short clips
     fun playSound(soundResource: String, speed: Float = 1f, volume: Float = 1f)
     fun vibrate(duration: Long = 100)
+    fun cancelVibration()
 }

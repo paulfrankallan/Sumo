@@ -67,12 +67,13 @@ fun GameScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE) {
-                viewModel.onIntent(GameIntent.GameOver())
+                viewModel.onIntent(GameIntent.StopGame)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.onIntent(GameIntent.StopGame)
         }
     }
 

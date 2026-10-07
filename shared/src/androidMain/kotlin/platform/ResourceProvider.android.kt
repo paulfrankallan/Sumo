@@ -14,6 +14,7 @@ actual class ResourceIdProvider {
             RES_ID_MUSIC_3 -> R.raw.sumo_music_drums
             RES_ID_HOME_LOOP -> R.raw.sumo_music_1
             RES_ID_HAKKEYOI -> R.raw.hakkeyoi
+            RES_ID_SHOBUARI_GAME_OVER -> R.raw.shobuari_game_over
             else -> null
         }
     }

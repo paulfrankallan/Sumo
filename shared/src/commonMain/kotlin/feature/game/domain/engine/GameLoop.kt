@@ -93,10 +93,12 @@ class GameLoop(
         }
     }
 
-    /** Stops the loop. State is preserved. */
+    /** Stops the loop, preserving its state while discarding stale input. */
     fun stop() {
         loopJob?.cancel()
         loopJob = null
+        drainInputChannel()
+        dragBlockedPlayers.clear()
     }
 
     /**

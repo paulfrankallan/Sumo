@@ -105,6 +105,10 @@ actual class SoundAndVibrate(
         }
     }
 
+    actual fun cancelVibration() {
+        resolveVibrator()?.cancel()
+    }
+
     private fun resolveVibrator(): Vibrator? {
         @Suppress("DEPRECATION")
         return appContext.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator

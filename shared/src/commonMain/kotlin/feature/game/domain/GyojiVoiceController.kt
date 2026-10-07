@@ -64,7 +64,7 @@ class GyojiVoiceController(
         timeUntilNextHakkeyoi = randomHakkeyoiInterval()
     }
 
-    private fun reset() {
+    fun reset() {
         stationaryTopPosition = null
         stationaryBottomPosition = null
         timeUntilNextHakkeyoi = Float.POSITIVE_INFINITY

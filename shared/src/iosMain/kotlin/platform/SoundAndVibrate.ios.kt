@@ -28,4 +28,6 @@ actual class SoundAndVibrate {
     ) {
         AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
     }
+
+    actual fun cancelVibration() = Unit
 }
