@@ -48,6 +48,7 @@ import platform.presentation.KeepScreenOn
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.game_bg
 
+@OptIn(ExperimentalSettingsApi::class)
 @Composable
 fun GameScreen(
     showInterstitialAd: () -> Unit
