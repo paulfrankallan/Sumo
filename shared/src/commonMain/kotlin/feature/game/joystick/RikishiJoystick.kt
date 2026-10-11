@@ -1,6 +1,5 @@
 package feature.game.joystick
 
-import app.theme.playerOneColor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -10,11 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -25,6 +22,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import app.theme.playerOneColor
 import feature.game.joystick.core.control.DirectionType
 import feature.game.joystick.ui.scope.draw.shapes.ArcDrawDefaults
 import feature.game.joystick.ui.scope.draw.shapes.DrawMode
@@ -93,7 +91,7 @@ fun RikishiJoystick(
     ) {
         val joystickSize = minOf(
             maxHeight,
-            (maxWidth - JOYSTICK_ACTIONS_WIDTH).coerceAtLeast(0.dp),
+            maxWidth.coerceAtLeast(0.dp),
         )
 
         Row(
@@ -103,10 +101,11 @@ fun RikishiJoystick(
                 modifier = Modifier.fillMaxHeight(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                JoystickActionButton(Res.drawable.pull_btn)
-                JoystickActionButton(Res.drawable.thrust_btn)
+                // Pull
+                JoystickActionButton(buttonImage = Res.drawable.pull_btn,)
+                // Thrust
+                JoystickActionButton(buttonImage = Res.drawable.thrust_btn)
             }
-            //Spacer(modifier = Modifier.width(JOYSTICK_ACTION_BUTTON_SPACING))
             BaseVirtualJoystick(
                 modifier = Modifier.size(joystickSize),
                 state = state,
@@ -124,13 +123,14 @@ fun RikishiJoystick(
                     drawArc(arcProperties)
                 }
             }
-            //Spacer(modifier = Modifier.width(JOYSTICK_ACTION_BUTTON_SPACING))
             Column(
                 modifier = Modifier.fillMaxHeight(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                JoystickActionButton(Res.drawable.push_btn)
-                JoystickActionButton(Res.drawable.throw_btn)
+                // Push
+                JoystickActionButton(buttonImage = Res.drawable.push_btn)
+                // Throw
+                JoystickActionButton(buttonImage = Res.drawable.throw_btn)
             }
         }
     }
@@ -140,7 +140,7 @@ fun RikishiJoystick(
 @Composable
 private fun RikishiJoystickPreview() {
     RikishiJoystick(
-        modifier = Modifier.size(width = 392.dp, height = 200.dp),
+        modifier = Modifier.size(width = 400.dp, height = 220.dp),
         primaryColor = playerOneColor,
         accentColor = playerOneColor,
         onMove = {},
@@ -148,7 +148,9 @@ private fun RikishiJoystickPreview() {
 }
 
 @Composable
-private fun JoystickActionButton(buttonImage: DrawableResource) {
+private fun JoystickActionButton(
+    buttonImage: DrawableResource,
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -179,7 +181,4 @@ private fun JoystickActionButton(buttonImage: DrawableResource) {
     }
 }
 
-private val JOYSTICK_ACTION_BUTTON_SIZE = 64.dp
-private val JOYSTICK_ACTION_BUTTON_SPACING = 12.dp
-private val JOYSTICK_ACTIONS_WIDTH =
-    (JOYSTICK_ACTION_BUTTON_SIZE + JOYSTICK_ACTION_BUTTON_SPACING) * 2
+private val JOYSTICK_ACTION_BUTTON_SIZE = 56.dp
