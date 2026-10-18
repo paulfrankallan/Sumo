@@ -1,8 +1,11 @@
 package feature.game.domain.engine
 
+import androidx.compose.ui.geometry.Offset
 import feature.game.domain.input.InputCommand
 import feature.game.domain.input.InputSource
+import feature.game.domain.input.PowerMove
 import feature.game.domain.model.GameWorld
+import feature.game.domain.model.RikishiBody
 import feature.game.domain.physics.PhysicsEngine
 import feature.game.domain.physics.PhysicsEvent
 import kotlinx.coroutines.CoroutineScope
@@ -17,6 +20,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.acos
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.time.TimeSource
 
 /**
@@ -37,6 +44,16 @@ class GameLoop(
     /** Latest physics world state. Null until [start] is called. */
     val worldState: StateFlow<GameWorld?> = _worldState.asStateFlow()
 
+    private val _activePushLungePlayerId = MutableStateFlow<String?>(null)
+
+    /** Player performing the current push lunge, or null when neither player is lunging. */
+    val activePushLungePlayerId: StateFlow<String?> = _activePushLungePlayerId.asStateFlow()
+
+    private val _activePullPlayerId = MutableStateFlow<String?>(null)
+
+    /** Player currently pulling and turning an opponent, or null when no pull is in contact. */
+    val activePullPlayerId: StateFlow<String?> = _activePullPlayerId.asStateFlow()
+
     private val _worldFrames = MutableSharedFlow<GameWorld>(
         replay = 1,
         extraBufferCapacity = 1,
@@ -53,8 +70,11 @@ class GameLoop(
 
     // Unlimited capacity so input producers never block or drop commands.
     private val inputChannel = Channel<InputCommand>(capacity = Channel.UNLIMITED)
+    private val powerMoveChannel = Channel<PowerMoveCommand>(capacity = Channel.UNLIMITED)
 
     private var loopJob: Job? = null
+    private var activePushLunge: PushLunge? = null
+    private var activePullAction: PullAction? = null
 
     // Player IDs whose DIRECT_DRAG commands should be discarded (set during damage reset,
     // cleared when the drag gesture ends so the position can't be pushed back immediately).
@@ -66,6 +86,11 @@ class GameLoop(
         inputChannel.trySend(command)
     }
 
+    /** Queues a one-shot [powerMove] for [playerId] to apply on the next physics frame. */
+    fun submitPowerMove(playerId: String, powerMove: PowerMove) {
+        powerMoveChannel.trySend(PowerMoveCommand(playerId, powerMove))
+    }
+
     /**
      * Starts the game loop with [initialWorld] as the starting state.
      * If a loop is already running it is cancelled first.
@@ -73,6 +98,9 @@ class GameLoop(
     fun start(initialWorld: GameWorld, scope: CoroutineScope) {
         loopJob?.cancel()
         dragBlockedPlayers.clear()
+        clearPushLunge()
+        clearPullAction()
+        drainPowerMoveChannel()
         _worldState.value = initialWorld
         loopJob = scope.launch {
             var world = initialWorld
@@ -81,11 +109,58 @@ class GameLoop(
                 _worldState.value?.let { world = it }
                 val frameStart = timeSource.markNow()
                 val commands = drainInputChannel()
-                val result = physics.step(world, commands)
+                drainPowerMoveChannel().forEach { command ->
+                    when (command.powerMove) {
+                        PowerMove.PUSH -> startPushLunge(world, command.playerId)
+                        PowerMove.PULL -> startPullAction(world, command.playerId)
+                    }
+                }
+                val blockedPlayerIds = mutableSetOf<String>()
+                activePushLunge?.let { blockedPlayerIds += it.opponentId }
+                activePullAction?.let { action ->
+                    blockedPlayerIds += action.defenderId
+                    if (action is PullAction.Turn) {
+                        blockedPlayerIds += action.attackerId
+                    }
+                }
+                val frameCommands = commands
+                    .filterNot { it.playerId in blockedPlayerIds }
+                    .toMutableList()
+                activePushLunge?.let { lunge ->
+                    frameCommands += InputCommand(
+                        playerId = lunge.playerId,
+                        velocityVector = lunge.velocityPerTick,
+                        source = InputSource.POWER_MOVE,
+                    )
+                }
+                (activePullAction as? PullAction.Lunge)?.let { lunge ->
+                    frameCommands += InputCommand(
+                        playerId = lunge.attackerId,
+                        velocityVector = lunge.velocityPerTick,
+                        source = InputSource.POWER_MOVE,
+                    )
+                }
+                (activePullAction as? PullAction.Turn)?.let { turn ->
+                    pullTurnMovement(world, turn)?.let { movement ->
+                        frameCommands += InputCommand(
+                            playerId = turn.defenderId,
+                            velocityVector = movement,
+                            source = InputSource.POWER_MOVE,
+                        )
+                    }
+                }
+                val result = physics.step(world, frameCommands)
                 world = result.world
                 _worldState.value = world
                 _worldFrames.emit(world)
                 result.events.forEach { _physicsEvents.tryEmit(it) }
+                if (result.events.any { it is PhysicsEvent.BoundaryViolation }) {
+                    clearPushLunge()
+                    clearPullAction()
+                } else {
+                    advancePushLunge()
+                    advancePullAction(world)
+                }
                 val elapsedMs = frameStart.elapsedNow().inWholeMilliseconds
                 val remaining = tickMs - elapsedMs
                 if (remaining > 0) kotlinx.coroutines.delay(remaining)
@@ -98,6 +173,9 @@ class GameLoop(
         loopJob?.cancel()
         loopJob = null
         drainInputChannel()
+        drainPowerMoveChannel()
+        clearPushLunge()
+        clearPullAction()
         dragBlockedPlayers.clear()
     }
 
@@ -107,6 +185,9 @@ class GameLoop(
      */
     fun reset(newWorld: GameWorld) {
         drainInputChannel() // discard stale commands
+        drainPowerMoveChannel()
+        clearPushLunge()
+        clearPullAction()
         _worldState.value = newWorld
     }
 
@@ -134,7 +215,362 @@ class GameLoop(
         return commands
     }
 
+    /** Drains all pending power moves without suspending. */
+    private fun drainPowerMoveChannel(): List<PowerMoveCommand> {
+        val commands = mutableListOf<PowerMoveCommand>()
+        while (true) {
+            val command = powerMoveChannel.tryReceive().getOrNull() ?: break
+            commands += command
+        }
+        return commands
+    }
+
+    private fun startPushLunge(world: GameWorld, playerId: String) {
+        if (activePushLunge != null || activePullAction != null) return
+
+        val (pusher, opponent, fallbackDirection) = when (playerId) {
+            world.topRikishi.id -> Triple(
+                world.topRikishi,
+                world.bottomRikishi,
+                Offset(0f, 1f),
+            )
+            world.bottomRikishi.id -> Triple(
+                world.bottomRikishi,
+                world.topRikishi,
+                Offset(0f, -1f),
+            )
+            else -> return
+        }
+        val directionX = opponent.position.x - pusher.position.x
+        val directionY = opponent.position.y - pusher.position.y
+        val directionLength = sqrt(directionX * directionX + directionY * directionY)
+        val direction = if (directionLength > 0f) {
+            Offset(directionX / directionLength, directionY / directionLength)
+        } else {
+            fallbackDirection
+        }
+        val distanceToEdge = distanceToArenaEdge(
+            position = pusher.position,
+            radius = pusher.radius,
+            direction = direction,
+            world = world,
+        )
+        val lungeDistance = distanceToEdge * PUSH_LUNGE_DISTANCE_RATIO
+        if (lungeDistance <= 0f) return
+
+        activePushLunge = PushLunge(
+            playerId = playerId,
+            opponentId = opponent.id,
+            velocityPerTick = Offset(
+                x = direction.x * lungeDistance / PUSH_LUNGE_TICK_COUNT,
+                y = direction.y * lungeDistance / PUSH_LUNGE_TICK_COUNT,
+            ),
+            ticksRemaining = PUSH_LUNGE_TICK_COUNT,
+        )
+        _activePushLungePlayerId.value = playerId
+    }
+
+    private fun distanceToArenaEdge(
+        position: Offset,
+        radius: Float,
+        direction: Offset,
+        world: GameWorld,
+    ): Float {
+        val safeArenaRadius = (world.arena.radius - radius).coerceAtLeast(0f)
+        val fromCentreX = position.x - world.arena.centre.x
+        val fromCentreY = position.y - world.arena.centre.y
+        val projectedDistance = fromCentreX * direction.x + fromCentreY * direction.y
+        val distanceToBoundarySquared =
+            safeArenaRadius * safeArenaRadius -
+                fromCentreX * fromCentreX -
+                fromCentreY * fromCentreY +
+                projectedDistance * projectedDistance
+        if (distanceToBoundarySquared <= 0f) return 0f
+
+        return (-projectedDistance + sqrt(distanceToBoundarySquared)).coerceAtLeast(0f)
+    }
+
+    private fun advancePushLunge() {
+        val lunge = activePushLunge ?: return
+        if (lunge.ticksRemaining <= 1) {
+            clearPushLunge()
+        } else {
+            activePushLunge = lunge.copy(ticksRemaining = lunge.ticksRemaining - 1)
+        }
+    }
+
+    private fun clearPushLunge() {
+        activePushLunge = null
+        _activePushLungePlayerId.value = null
+    }
+
+    private fun startPullAction(world: GameWorld, playerId: String) {
+        if (activePushLunge != null || activePullAction != null) return
+
+        val (attacker, defender) = powerMoveParticipants(world, playerId) ?: return
+        val contactDistance = attacker.radius + defender.radius
+        val distance = distanceBetween(attacker.position, defender.position)
+        val canReachDefender = distance <= contactDistance * PULL_REACH_MULTIPLIER
+
+        if (distance <= contactDistance + PULL_CONTACT_TOLERANCE) {
+            if (!startPullTurn(world, playerId, defender.id)) {
+                startFailedPullLunge(
+                    world = world,
+                    attacker = attacker,
+                    defender = defender,
+                )
+            }
+            return
+        }
+
+        val direction = Offset(
+            x = (defender.position.x - attacker.position.x) / distance,
+            y = (defender.position.y - attacker.position.y) / distance,
+        )
+        val lungeDistance = minOf(
+            distance - contactDistance,
+            contactDistance,
+        )
+        activePullAction = PullAction.Lunge(
+            attackerId = playerId,
+            defenderId = defender.id,
+            shouldAttemptTurn = canReachDefender,
+            velocityPerTick = Offset(
+                x = direction.x * lungeDistance / PULL_LUNGE_TICK_COUNT,
+                y = direction.y * lungeDistance / PULL_LUNGE_TICK_COUNT,
+            ),
+            ticksRemaining = PULL_LUNGE_TICK_COUNT,
+        )
+    }
+
+    private fun advancePullAction(world: GameWorld) {
+        when (val action = activePullAction) {
+            is PullAction.Lunge -> {
+                if (action.shouldAttemptTurn && arePullingRikishiInContact(world, action)) {
+                    if (!startPullTurn(world, action.attackerId, action.defenderId)) {
+                        clearPullAction()
+                    }
+                } else if (action.ticksRemaining <= 1) {
+                    clearPullAction()
+                } else {
+                    activePullAction = action.copy(ticksRemaining = action.ticksRemaining - 1)
+                }
+            }
+            is PullAction.Turn -> {
+                if (action.ticksRemaining <= 1) {
+                    clearPullAction()
+                } else {
+                    activePullAction = action.copy(ticksRemaining = action.ticksRemaining - 1)
+                }
+            }
+            null -> Unit
+        }
+    }
+
+    private fun startFailedPullLunge(
+        world: GameWorld,
+        attacker: RikishiBody,
+        defender: RikishiBody,
+    ) {
+        val distance = distanceBetween(attacker.position, defender.position)
+        val direction = if (distance > 0f) {
+            Offset(
+                x = (defender.position.x - attacker.position.x) / distance,
+                y = (defender.position.y - attacker.position.y) / distance,
+            )
+        } else if (attacker.id == world.topRikishi.id) {
+            Offset(0f, 1f)
+        } else {
+            Offset(0f, -1f)
+        }
+        val lungeDistance = (attacker.radius + defender.radius) *
+            PULL_FAILED_CONTACT_LUNGE_DISTANCE_RATIO
+
+        activePullAction = PullAction.Lunge(
+            attackerId = attacker.id,
+            defenderId = defender.id,
+            shouldAttemptTurn = false,
+            velocityPerTick = Offset(
+                x = direction.x * lungeDistance / PULL_LUNGE_TICK_COUNT,
+                y = direction.y * lungeDistance / PULL_LUNGE_TICK_COUNT,
+            ),
+            ticksRemaining = PULL_LUNGE_TICK_COUNT,
+        )
+    }
+
+    private fun startPullTurn(
+        world: GameWorld,
+        attackerId: String,
+        defenderId: String,
+    ): Boolean {
+        val (attacker, defender) = powerMoveParticipants(world, attackerId) ?: return false
+        if (defender.id != defenderId) return false
+
+        val defenderRelativeToAttacker = Offset(
+            x = defender.position.x - attacker.position.x,
+            y = defender.position.y - attacker.position.y,
+        )
+        val defenderDistanceFromAttacker = distanceBetween(
+            attacker.position,
+            defender.position,
+        )
+        if (defenderDistanceFromAttacker == 0f) return false
+
+        val attackerFromCentre = Offset(
+            x = attacker.position.x - world.arena.centre.x,
+            y = attacker.position.y - world.arena.centre.y,
+        )
+        val attackerDistanceFromCentre = distanceBetween(
+            attacker.position,
+            world.arena.centre,
+        )
+        if (attackerDistanceFromCentre == 0f) return false
+
+        val optimalDefenderRelativePosition = Offset(
+            x = attackerFromCentre.x / attackerDistanceFromCentre * defenderDistanceFromAttacker,
+            y = attackerFromCentre.y / attackerDistanceFromCentre * defenderDistanceFromAttacker,
+        )
+        val currentDefenderDistanceFromCentre = distanceBetween(
+            defender.position,
+            world.arena.centre,
+        )
+        val optimalDefenderPosition = attacker.position + optimalDefenderRelativePosition
+        val optimalDefenderDistanceFromCentre = distanceBetween(
+            optimalDefenderPosition,
+            world.arena.centre,
+        )
+        if (
+            optimalDefenderDistanceFromCentre <=
+                currentDefenderDistanceFromCentre + PULL_MIN_EDGE_GAIN
+        ) {
+            return false
+        }
+
+        val normalizedDot = (
+            defenderRelativeToAttacker.x * optimalDefenderRelativePosition.x +
+                defenderRelativeToAttacker.y * optimalDefenderRelativePosition.y
+            ) / (defenderDistanceFromAttacker * defenderDistanceFromAttacker)
+        val turnRadians = acos(normalizedDot.coerceIn(-1f, 1f).toDouble()).toFloat()
+        if (turnRadians < PULL_MIN_TURN_RADIANS) return false
+
+        val crossProduct =
+            defenderRelativeToAttacker.x * optimalDefenderRelativePosition.y -
+                defenderRelativeToAttacker.y * optimalDefenderRelativePosition.x
+        val turnDirection = when {
+            crossProduct > 0f -> 1f
+            crossProduct < 0f -> -1f
+            defenderRelativeToAttacker.x >= 0f -> 1f
+            else -> -1f
+        }
+        activePullAction = PullAction.Turn(
+            attackerId = attackerId,
+            defenderId = defenderId,
+            radiansPerTick = turnDirection * turnRadians / PULL_TURN_TICK_COUNT,
+            ticksRemaining = PULL_TURN_TICK_COUNT,
+        )
+        _activePullPlayerId.value = attackerId
+        return true
+    }
+
+    private fun pullTurnMovement(world: GameWorld, turn: PullAction.Turn): Offset? {
+        val (attacker, defender) = powerMoveParticipants(world, turn.attackerId) ?: return null
+        if (defender.id != turn.defenderId) return null
+
+        val defenderRelativeToAttacker = Offset(
+            x = defender.position.x - attacker.position.x,
+            y = defender.position.y - attacker.position.y,
+        )
+        val rotatedRelativePosition = rotate(
+            offset = defenderRelativeToAttacker,
+            radians = turn.radiansPerTick,
+        )
+        return rotatedRelativePosition - defenderRelativeToAttacker
+    }
+
+    private fun arePullingRikishiInContact(
+        world: GameWorld,
+        action: PullAction.Lunge,
+    ): Boolean {
+        val (attacker, defender) = powerMoveParticipants(world, action.attackerId) ?: return false
+        if (defender.id != action.defenderId) return false
+
+        return distanceBetween(attacker.position, defender.position) <=
+            attacker.radius + defender.radius + PULL_CONTACT_TOLERANCE
+    }
+
+    private fun powerMoveParticipants(
+        world: GameWorld,
+        attackerId: String,
+    ): Pair<RikishiBody, RikishiBody>? =
+        when (attackerId) {
+            world.topRikishi.id -> world.topRikishi to world.bottomRikishi
+            world.bottomRikishi.id -> world.bottomRikishi to world.topRikishi
+            else -> null
+        }
+
+    private fun distanceBetween(first: Offset, second: Offset): Float {
+        val x = first.x - second.x
+        val y = first.y - second.y
+        return sqrt(x * x + y * y)
+    }
+
+    private fun rotate(offset: Offset, radians: Float): Offset {
+        val cosine = cos(radians.toDouble()).toFloat()
+        val sine = sin(radians.toDouble()).toFloat()
+        return Offset(
+            x = offset.x * cosine - offset.y * sine,
+            y = offset.x * sine + offset.y * cosine,
+        )
+    }
+
+    private fun clearPullAction() {
+        activePullAction = null
+        _activePullPlayerId.value = null
+    }
+
+    private data class PowerMoveCommand(
+        val playerId: String,
+        val powerMove: PowerMove,
+    )
+
+    private data class PushLunge(
+        val playerId: String,
+        val opponentId: String,
+        val velocityPerTick: Offset,
+        val ticksRemaining: Int,
+    )
+
+    private sealed class PullAction {
+        abstract val attackerId: String
+        abstract val defenderId: String
+
+        data class Lunge(
+            override val attackerId: String,
+            override val defenderId: String,
+            val shouldAttemptTurn: Boolean,
+            val velocityPerTick: Offset,
+            val ticksRemaining: Int,
+        ) : PullAction()
+
+        data class Turn(
+            override val attackerId: String,
+            override val defenderId: String,
+            val radiansPerTick: Float,
+            val ticksRemaining: Int,
+        ) : PullAction()
+    }
+
     companion object {
         const val TICK_MS = 16L  // ~60 Hz
+        private const val PUSH_LUNGE_TICK_COUNT = 18
+        private const val PUSH_LUNGE_DISTANCE_RATIO = 0.5f
+        // Two rikishi widths is the maximum distance from which a pull can connect.
+        private const val PULL_REACH_MULTIPLIER = 2f
+        private const val PULL_CONTACT_TOLERANCE = 1f
+        private const val PULL_LUNGE_TICK_COUNT = 12
+        private const val PULL_TURN_TICK_COUNT = 24
+        private const val PULL_FAILED_CONTACT_LUNGE_DISTANCE_RATIO = 0.5f
+        private const val PULL_MIN_EDGE_GAIN = 1f
+        private const val PULL_MIN_TURN_RADIANS = 0.017453292f
     }
 }

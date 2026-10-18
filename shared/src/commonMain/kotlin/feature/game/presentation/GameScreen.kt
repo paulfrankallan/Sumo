@@ -35,11 +35,11 @@ import feature.common.model.Position
 import feature.common.presentation.Intent
 import feature.game.domain.input.InputCommand
 import feature.game.domain.input.InputSource
+import feature.game.domain.input.PowerMove
 import feature.game.joystick.RikishiJoystick
 import feature.game.joystick.ui.state.JoystickState
 import feature.game.joystick.ui.view.rememberJoystickState
 import feature.game.presentation.model.Player
-import feature.game.presentation.ui.IntroCountdownView
 import feature.game.presentation.ui.Janome
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
@@ -87,7 +87,7 @@ fun GameScreen(
         topJoystickState = topJoystickState,
         bottomJoystickState = bottomJoystickState,
         onIntent = viewModel::onIntent,
-        onSubmitInput = viewModel.gameLoop::submitInput,
+        onSubmitInput = viewModel::submitInput,
         isFullContact = isFullContact,
     )
 
@@ -130,6 +130,24 @@ fun GameScreenContent(
                 state = topJoystickState,
                 primaryColor = playerTwoColor,
                 accentColor = playerTwoColor,
+                isPullPowerMoveEnabled = state.isPullPowerMoveEnabled,
+                onPull = {
+                    onIntent(
+                        GameIntent.PowerMovePressed(
+                            playerId = state.topPlayer.id,
+                            powerMove = PowerMove.PULL,
+                        )
+                    )
+                },
+                isPushPowerMoveEnabled = state.isPushPowerMoveEnabled,
+                onPush = {
+                    onIntent(
+                        GameIntent.PowerMovePressed(
+                            playerId = state.topPlayer.id,
+                            powerMove = PowerMove.PUSH,
+                        )
+                    )
+                },
                 onMoveStart = {
                     if (state.playState != PlayState.IN_PROGRESS || state.isGameOver) {
                         onIntent(GameIntent.StartGame)
@@ -188,6 +206,24 @@ fun GameScreenContent(
                 state = bottomJoystickState,
                 primaryColor = playerOneColor,
                 accentColor = playerOneColor,
+                isPullPowerMoveEnabled = state.isPullPowerMoveEnabled,
+                onPull = {
+                    onIntent(
+                        GameIntent.PowerMovePressed(
+                            playerId = state.bottomPlayer.id,
+                            powerMove = PowerMove.PULL,
+                        )
+                    )
+                },
+                isPushPowerMoveEnabled = state.isPushPowerMoveEnabled,
+                onPush = {
+                    onIntent(
+                        GameIntent.PowerMovePressed(
+                            playerId = state.bottomPlayer.id,
+                            powerMove = PowerMove.PUSH,
+                        )
+                    )
+                },
                 onMoveStart = {
                     if (state.playState != PlayState.IN_PROGRESS || state.isGameOver) {
                         onIntent(GameIntent.StartGame)
@@ -213,7 +249,6 @@ fun GameScreenContent(
             )
         }
     }
-    IntroCountdownView(state = state.startCountdownViewState)
 }
 
 @Preview

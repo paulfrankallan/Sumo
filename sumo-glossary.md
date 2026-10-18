@@ -103,3 +103,6 @@ Many Western fans incorrectly refer to the entire ring as the "dohyō" and the s
 - **Tokudawara** – Four outward-facing special bales
 - **Janome** – Sand surrounding the ring
 - **Shikiri-sen** – Starting lines
+
+
+Gunbai — 軍配 — Sumo referee's fan

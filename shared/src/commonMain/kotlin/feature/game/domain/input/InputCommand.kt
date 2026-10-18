@@ -20,4 +20,11 @@ data class InputCommand(
 enum class InputSource {
     JOYSTICK,
     DIRECT_DRAG,
+    POWER_MOVE,
+}
+
+/** One-shot action controls that can be claimed by either player during a bout. */
+enum class PowerMove {
+    PUSH,
+    PULL,
 }

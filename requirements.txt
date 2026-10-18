@@ -26,8 +26,9 @@ TODO
 * Privacy policy - Done
 * Game JoyPad Controls - Done
 * Game Over Winner Scrim -
-* Power ups feature -
+* Power ups feature - Done
 * Animatable Rikishi red, blue, red_pushing, blue_pushing -
+* Hakkeyoi Feature - Done
 
 * Crowd cheering sound effect
     - louder when a Rikishi is near the edge of the ring
@@ -40,3 +41,17 @@ E.g. ideas so far: Gunbai — 軍配 — Sumo referee's fan, or 力 — Chikara 
 
 Gyōji = referee in the ring.
 Shimpan = judges around the ring who can overrule the Gyōji.
+
+Terms
+PhysicsEngine, GameLoop,
+Attacker, Defender
+Opponent
+
+TODO
+
+* After an injury and reset play Nokotta to signify that the match is still ongoing.
+* Wave the Gunbai to start the match.
+* Game Over Winner Scrim
+* jikan desu - translates to "it is time," shouted by the referee (gyoji) right before a bout begins.
+
+

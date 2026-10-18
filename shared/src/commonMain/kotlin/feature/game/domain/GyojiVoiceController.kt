@@ -83,8 +83,8 @@ class GyojiVoiceController(
 
     private companion object {
         // Game-world coordinates are pixels, so this is the five-pixel stationary tolerance.
-        const val MOVEMENT_THRESHOLD_PX = 5f
-        const val MIN_HAKKEYOI_INTERVAL_SECONDS = 3f
-        const val MAX_HAKKEYOI_INTERVAL_SECONDS = 10f
+        const val MOVEMENT_THRESHOLD_PX = 10f
+        const val MIN_HAKKEYOI_INTERVAL_SECONDS = 5f
+        const val MAX_HAKKEYOI_INTERVAL_SECONDS = 13f
     }
 }

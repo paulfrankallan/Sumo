@@ -6,8 +6,8 @@ import feature.common.events.Event
 import feature.common.presentation.Intent
 import feature.common.presentation.NavigationEvent
 import feature.common.presentation.ViewState
+import feature.game.domain.input.PowerMove
 import feature.game.domain.model.GameOverResult
-import feature.game.domain.model.StartCountdownViewState
 import feature.game.presentation.model.Player
 import org.jetbrains.compose.resources.DrawableResource
 import sumo.shared.generated.resources.Res
@@ -22,7 +22,7 @@ data class GameState(
     val bottomPlayer: Player,
     val gameOverResult: GameOverResult? = null,
     val playState: PlayState = PlayState.NEW,
-    val startCountdownViewState: StartCountdownViewState? = null,
+    val isStartCeremonyVisible: Boolean = false,
     val ui: UI = UI(),
     // Render positions from the game loop — null until the arena is measured.
     val topRikishiPosition: Offset? = null,
@@ -30,6 +30,10 @@ data class GameState(
     val arenaCentre: Offset? = null,
     val arenaRadius: Float? = null,
     val rikishiRadius: Float? = null,
+    /** Whether either player may claim the shared push power move. */
+    val isPushPowerMoveEnabled: Boolean = false,
+    /** Whether either player may claim the shared pull power move. */
+    val isPullPowerMoveEnabled: Boolean = false,
 ) : ViewState {
     val isGameOver: Boolean
         get() = gameOverResult != null
@@ -60,6 +64,7 @@ enum class ThumbState {
 
 enum class PlayState {
     NEW,
+    STARTING,
     IN_PROGRESS,
     FINISHED
 }
@@ -72,6 +77,10 @@ sealed class GameIntent : Intent {
     data class PressStateChanged(val isPressed: Boolean, val player: Player) : GameIntent()
     data object ResetThumbsComplete : GameIntent()
     data class DragEnded(val player: Player) : GameIntent()
+    data class PowerMovePressed(
+        val playerId: String,
+        val powerMove: PowerMove,
+    ) : GameIntent()
     /** Arena dimensions measured by the UI — initialises the game loop world. */
     data class ArenaMeasured(
         val centre: Offset,

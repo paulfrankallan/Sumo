@@ -4,10 +4,8 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.sp
 import app.sound.SoundAndVibrationFeedback
 import app.theme.AppColor
-import app.util.CountUpTimer
 import feature.common.events.GameOverEvent
 import feature.common.model.Position
 import feature.common.presentation.CMViewModel
@@ -15,10 +13,11 @@ import feature.common.presentation.Intent
 import feature.common.presentation.NavigationEvent
 import feature.game.domain.GyojiVoiceController
 import feature.game.domain.engine.GameLoop
+import feature.game.domain.input.InputCommand
+import feature.game.domain.input.PowerMove
 import feature.game.domain.model.ArenaWorld
 import feature.game.domain.model.GameWorld
 import feature.game.domain.model.RikishiBody
-import feature.game.domain.model.StartCountdownViewState
 import feature.game.domain.physics.PhysicsEvent
 import feature.game.domain.usecase.ApplyDamage
 import feature.game.domain.usecase.UpdatePlayState
@@ -41,7 +40,7 @@ import sumo.shared.generated.resources.rikishi_blue_push
 import sumo.shared.generated.resources.rikishi_red
 import sumo.shared.generated.resources.rikishi_red_push
 import sumo.shared.generated.resources.winner
-import kotlin.time.Duration.Companion.milliseconds
+import kotlin.random.Random
 
 class GameViewModel(
     private val applyDamage: ApplyDamage,
@@ -49,8 +48,8 @@ class GameViewModel(
     private val soundAndVibration: SoundAndVibrationFeedback,
     val gameLoop: GameLoop = GameLoop(),
 ) : CMViewModel<GameState, Intent>() {
-    private var startGameCountdownTimerJob: Job? = null
-    private var startGameCountdownCompletionJob: Job? = null
+    private var startCeremonyJob: Job? = null
+    private val powerMoveTimerJobs = mutableMapOf<PowerMove, Job>()
     private val gameSession = MutableStateFlow(0)
     private var finalGameOverSoundPending = false
     // Per-player flags prevent double damage to the same player in one reset cycle
@@ -68,7 +67,7 @@ class GameViewModel(
         }
     }
 
-    // Tracks touching state to avoid recreating the push UI on every game tick.
+    // Tracks normal collision contact for Rikishi power-move artwork.
     private var prevTouching = false
 
     // Single shared position reset — both Rikishi always return to start together.
@@ -94,6 +93,12 @@ class GameViewModel(
     private fun isGameInProgress(): Boolean =
         state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver
 
+    fun submitInput(command: InputCommand) {
+        if (isGameInProgress()) {
+            gameLoop.submitInput(command)
+        }
+    }
+
     private fun launchGameAudio(playAudio: () -> Unit) {
         val session = gameSession.value
         scope.launch(Dispatchers.Default) {
@@ -105,14 +110,53 @@ class GameViewModel(
 
     private fun stopGameActivity() {
         gameSession.update { it + 1 }
-        startGameCountdownTimerJob?.cancel()
-        startGameCountdownTimerJob = null
-        startGameCountdownCompletionJob?.cancel()
-        startGameCountdownCompletionJob = null
+        startCeremonyJob?.cancel()
+        startCeremonyJob = null
+        disableAllPowerMoves()
         gyojiController.reset()
         gameLoop.stop()
         soundAndVibration.stopMusic(musicResourceId = RES_ID_MUSIC_3)
         soundAndVibration.stopGameFeedback()
+    }
+
+    private fun disableAllPowerMoves() {
+        PowerMove.entries.forEach(::disablePowerMove)
+    }
+
+    private fun disablePowerMove(powerMove: PowerMove) {
+        powerMoveTimerJobs.remove(powerMove)?.cancel()
+        _state.update { state -> state.withPowerMoveEnabled(powerMove, false) }
+    }
+
+    private fun scheduleNextPowerMove(powerMove: PowerMove) {
+        val session = gameSession.value
+        powerMoveTimerJobs[powerMove] = scope.launch {
+            delay(randomPowerMoveDelayMillis())
+            if (session == gameSession.value && isGameInProgress()) {
+                _state.update { state -> state.withPowerMoveEnabled(powerMove, true) }
+            }
+        }
+    }
+
+    private fun resetPowerMoveTimer(powerMove: PowerMove) {
+        disablePowerMove(powerMove)
+        scheduleNextPowerMove(powerMove)
+    }
+
+    private fun claimPowerMove(playerId: String, powerMove: PowerMove) {
+        val currentState = state.value
+        val playerExists = playerId == currentState.topPlayer.id ||
+            playerId == currentState.bottomPlayer.id
+        if (
+            !playerExists ||
+            !currentState.isPowerMoveEnabled(powerMove) ||
+            !isGameInProgress()
+        ) {
+            return
+        }
+        disablePowerMove(powerMove)
+        gameLoop.submitPowerMove(playerId, powerMove)
+        scheduleNextPowerMove(powerMove)
     }
 
     private fun deactivateGame(playFinalGameOverSound: Boolean = false) {
@@ -122,7 +166,7 @@ class GameViewModel(
         _state.update { state ->
             state.copy(
                 playState = PlayState.FINISHED,
-                startCountdownViewState = null,
+                isStartCeremonyVisible = false,
             )
         }
         if (shouldPlayFinalGameOverSound) {
@@ -154,6 +198,30 @@ class GameViewModel(
                 }
         }
 
+        scope.launch {
+            gameLoop.activePushLungePlayerId.collect { playerId ->
+                _state.update { state ->
+                    state.withPowerMoveAppearance(
+                        touching = prevTouching,
+                        pushLungingPlayerId = playerId,
+                        pullAttackerId = gameLoop.activePullPlayerId.value,
+                    )
+                }
+            }
+        }
+
+        scope.launch {
+            gameLoop.activePullPlayerId.collect { playerId ->
+                _state.update { state ->
+                    state.withPowerMoveAppearance(
+                        touching = prevTouching,
+                        pushLungingPlayerId = gameLoop.activePushLungePlayerId.value,
+                        pullAttackerId = playerId,
+                    )
+                }
+            }
+        }
+
         // Subscribe to the latest world state for rendering.
         scope.launch {
             gameLoop.worldState.filterNotNull().collect { world ->
@@ -170,33 +238,20 @@ class GameViewModel(
                 val threshold = world.topRikishi.radius + world.bottomRikishi.radius + 1.0f
                 val touching = currentDist <= threshold
 
-                // Update UI state - ALWAYS update positions and only update images when touching state changes
+                prevTouching = touching
                 _state.update { state ->
-                    // Only update images if touching state changed
-                    val ui = if (touching != prevTouching) {
-                        val topImage = if (touching) Res.drawable.rikishi_blue_push else Res.drawable.rikishi_blue
-                        val bottomImage = if (touching) Res.drawable.rikishi_red_push else Res.drawable.rikishi_red
-                        state.ui.copy(
-                            topThumbView = state.ui.topThumbView.copy(foregroundImage = topImage),
-                            bottomThumbView = state.ui.bottomThumbView.copy(foregroundImage = bottomImage),
-                            isTopPushing = touching,
-                            isBottomPushing = touching,
-                        )
-                    } else {
-                        state.ui
-                    }
-                    
                     state.copy(
                         topRikishiPosition = topPos,
                         bottomRikishiPosition = bottomPos,
                         arenaCentre = world.arena.centre,
                         arenaRadius = world.arena.radius,
                         rikishiRadius = world.topRikishi.radius,
-                        ui = ui,
+                    ).withPowerMoveAppearance(
+                        touching = touching,
+                        pushLungingPlayerId = gameLoop.activePushLungePlayerId.value,
+                        pullAttackerId = gameLoop.activePullPlayerId.value,
                     )
                 }
-                
-                prevTouching = touching
             }
         }
 
@@ -280,7 +335,12 @@ class GameViewModel(
     override fun onIntent(intent: Intent) {
         when (intent) {
             GameIntent.StartGame -> {
-                if (state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver) return
+                if (
+                    state.value.playState == PlayState.STARTING ||
+                    (state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver)
+                ) {
+                    return
+                }
                 finalGameOverSoundPending = false
                 stopGameActivity()
                 isTopResettingAfterDamage.value = false
@@ -294,7 +354,9 @@ class GameViewModel(
                         gameOverResult = null,
                         topPlayer = Player(id = newTopId, position = Position.TOP),
                         bottomPlayer = Player(id = newBottomId, position = Position.BOTTOM),
-                        ui = UI()
+                        playState = PlayState.STARTING,
+                        isStartCeremonyVisible = true,
+                        ui = UI(),
                     )
                 }
                 // Reset game loop world if arena has been measured.
@@ -315,7 +377,7 @@ class GameViewModel(
                     }
                 }
                 triggerResetThumbPositions()
-                invokeGameStartCountdownTimer()
+                startGameCeremony()
             }
 
             is GameIntent.GameOver -> {
@@ -375,6 +437,10 @@ class GameViewModel(
 
             is GameIntent.DragEnded -> {
                 gameLoop.unblockDragForPlayer(intent.player.id)
+            }
+
+            is GameIntent.PowerMovePressed -> {
+                claimPowerMove(intent.playerId, intent.powerMove)
             }
 
             is GameIntent.PressStateChanged -> {
@@ -449,52 +515,99 @@ class GameViewModel(
         super.onCleared()
     }
 
-    private fun invokeGameStartCountdownTimer() {
+    private fun startGameCeremony() {
         val session = gameSession.value
-        startGameCountdownTimerJob = CountUpTimer()(
-            startDelayMillis = 1L,
-            start = 0,
-            end = 0,
-            onTick = {
-                scope.launch {
-                    if (session == gameSession.value) {
-                        _state.update { state ->
-                            val done = it == 0
-                            state.copy(
-                                startCountdownViewState = StartCountdownViewState(
-                                    text = if (done) "FIGHT" else it.toString(),
-                                    textColor = AppColor.BLOOD_RED.color,
-                                    textSize = if (done) 48.sp else 192.sp,
-                                ),
-                            )
-                        }
-                    }
-                }
-            },
-            onComplete = {
-                if (session == gameSession.value) {
-                    startGameCountdownCompletionJob = delayedFinish {
-                        if (session == gameSession.value) {
-                            _state.update { state ->
-                                state.copy(
-                                    startCountdownViewState = null,
-                                    playState = PlayState.IN_PROGRESS,
-                                )
-                            }
-                            launchGameAudio {
-                                soundAndVibration.startMusic(musicResourceId = RES_ID_MUSIC_3)
-                            }
-                        }
-                    }
-                }
+        startCeremonyJob = scope.launch {
+            delay(START_CEREMONY_DURATION_MILLIS)
+            if (
+                session != gameSession.value ||
+                state.value.playState != PlayState.STARTING
+            ) {
+                return@launch
             }
-        )
-    }
-
-    private fun delayedFinish(finishFunction: () -> Unit): Job {
-        return scope.launch {
-            delay(2000.milliseconds)
-            finishFunction()
+            soundAndVibration.jikanDesuFeedback()
+            _state.update { state ->
+                state.copy(
+                    isStartCeremonyVisible = false,
+                    playState = PlayState.IN_PROGRESS,
+                )
+            }
+            PowerMove.entries.forEach(::resetPowerMoveTimer)
+            launchGameAudio {
+                soundAndVibration.startMusic(musicResourceId = RES_ID_MUSIC_3)
+            }
         }
     }
+}
+
+private fun GameState.isPowerMoveEnabled(powerMove: PowerMove): Boolean = when (powerMove) {
+    PowerMove.PUSH -> isPushPowerMoveEnabled
+    PowerMove.PULL -> isPullPowerMoveEnabled
+}
+
+private fun GameState.withPowerMoveEnabled(
+    powerMove: PowerMove,
+    enabled: Boolean,
+): GameState = when (powerMove) {
+    PowerMove.PUSH -> copy(isPushPowerMoveEnabled = enabled)
+    PowerMove.PULL -> copy(isPullPowerMoveEnabled = enabled)
+}
+
+internal const val POWER_MOVE_MIN_DELAY_MILLIS = 8_000L
+internal const val POWER_MOVE_MAX_DELAY_MILLIS = 30_000L
+private const val START_CEREMONY_DURATION_MILLIS = 3_000L
+
+internal fun randomPowerMoveDelayMillis(random: Random = Random.Default): Long =
+    random.nextLong(
+        from = POWER_MOVE_MIN_DELAY_MILLIS,
+        until = POWER_MOVE_MAX_DELAY_MILLIS + 1,
+    )
+
+private fun GameState.withPowerMoveAppearance(
+    touching: Boolean,
+    pushLungingPlayerId: String?,
+    pullAttackerId: String?,
+): GameState {
+    if (isGameOver) return this
+
+    val activeAttackerId = pullAttackerId ?: pushLungingPlayerId
+    val hasActivePowerMove = activeAttackerId == topPlayer.id ||
+        activeAttackerId == bottomPlayer.id
+    val isTopPushing = if (hasActivePowerMove) {
+        activeAttackerId == topPlayer.id
+    } else {
+        touching
+    }
+    val isBottomPushing = if (hasActivePowerMove) {
+        activeAttackerId == bottomPlayer.id
+    } else {
+        touching
+    }
+    if (
+        ui.isTopPushing == isTopPushing &&
+        ui.isBottomPushing == isBottomPushing
+    ) {
+        return this
+    }
+
+    return copy(
+        ui = ui.copy(
+            topThumbView = ui.topThumbView.copy(
+                foregroundImage = if (isTopPushing) {
+                    Res.drawable.rikishi_blue_push
+                } else {
+                    Res.drawable.rikishi_blue
+                },
+            ),
+            bottomThumbView = ui.bottomThumbView.copy(
+                foregroundImage = if (isBottomPushing) {
+                    Res.drawable.rikishi_red_push
+                } else {
+                    Res.drawable.rikishi_red
+                },
+            ),
+            isTopPushing = isTopPushing,
+            isBottomPushing = isBottomPushing,
+        )
+    )
 }

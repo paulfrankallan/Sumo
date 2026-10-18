@@ -8,6 +8,7 @@ import platform.RES_ID_DIE_3
 import platform.RES_ID_DIE_4
 import platform.RES_ID_DIE_5
 import platform.RES_ID_HAKKEYOI
+import platform.RES_ID_JIKAN_DESU
 import platform.RES_ID_SHOBUARI_GAME_OVER
 import platform.SoundAndVibrate
 
@@ -58,6 +59,7 @@ class SoundAndVibrationFeedback(
 
     fun stopGameFeedback() {
         soundAndVibrate.stopSound(RES_ID_HAKKEYOI)
+        soundAndVibrate.stopSound(RES_ID_JIKAN_DESU)
         soundAndVibrate.stopSound(RES_ID_SHOBUARI_GAME_OVER)
         listOf(
             RES_ID_DIE_1,
@@ -67,6 +69,12 @@ class SoundAndVibrationFeedback(
             RES_ID_DIE_5,
         ).forEach(soundAndVibrate::stopSound)
         soundAndVibrate.cancelVibration()
+    }
+
+    fun jikanDesuFeedback() {
+        if (preferences.isSoundEnabled()) {
+            soundAndVibrate.playSound(RES_ID_JIKAN_DESU)
+        }
     }
 
     /**

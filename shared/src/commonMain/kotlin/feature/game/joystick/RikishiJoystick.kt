@@ -1,6 +1,7 @@
 package feature.game.joystick
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -12,11 +13,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -54,6 +57,10 @@ import sumo.shared.generated.resources.thrust_btn
  * @param state The joystick state. Defaults to a new [JoystickState] with [DirectionType.Complete].
  * @param primaryColor The primary (arc) colour, matched to the player's Rikishi / health-bar colour.
  * @param accentColor The accent colour used for the arc gradient highlight.
+ * @param isPullPowerMoveEnabled Whether the shared pull power move is available to this player.
+ * @param onPull Invoked when this player's enabled pull action is pressed.
+ * @param isPushPowerMoveEnabled Whether the shared push power move is available to this player.
+ * @param onPush Invoked when this player's enabled push action is pressed.
  * @param onMoveStart Optional callback invoked once when the joystick is first touched.
  * @param onMove Callback invoked while the joystick is moved or held.
  * @param onMoveEnd Optional callback invoked when the joystick is released.
@@ -66,6 +73,10 @@ fun RikishiJoystick(
     ),
     primaryColor: Color,
     accentColor: Color,
+    isPullPowerMoveEnabled: Boolean = false,
+    onPull: () -> Unit = {},
+    isPushPowerMoveEnabled: Boolean = false,
+    onPush: () -> Unit = {},
     onMoveStart: JoystickMoveListener? = null,
     onMove: JoystickMoveListener,
     onMoveEnd: JoystickMoveListener? = null,
@@ -102,9 +113,13 @@ fun RikishiJoystick(
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // Pull
-                JoystickActionButton(buttonImage = Res.drawable.pull_btn,)
+                JoystickActionButton(
+                    buttonImage = Res.drawable.pull_btn,
+                    enabled = isPullPowerMoveEnabled,
+                    onClick = onPull,
+                )
                 // Thrust
-                JoystickActionButton(buttonImage = Res.drawable.thrust_btn)
+                //JoystickActionButton(buttonImage = Res.drawable.thrust_btn)
             }
             BaseVirtualJoystick(
                 modifier = Modifier.size(joystickSize),
@@ -128,9 +143,13 @@ fun RikishiJoystick(
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // Push
-                JoystickActionButton(buttonImage = Res.drawable.push_btn)
+                JoystickActionButton(
+                    buttonImage = Res.drawable.push_btn,
+                    enabled = isPushPowerMoveEnabled,
+                    onClick = onPush,
+                )
                 // Throw
-                JoystickActionButton(buttonImage = Res.drawable.throw_btn)
+                //JoystickActionButton(buttonImage = Res.drawable.throw_btn)
             }
         }
     }
@@ -150,6 +169,8 @@ private fun RikishiJoystickPreview() {
 @Composable
 private fun JoystickActionButton(
     buttonImage: DrawableResource,
+    enabled: Boolean = true,
+    onClick: () -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -159,9 +180,10 @@ private fun JoystickActionButton(
         modifier = Modifier
             .size(JOYSTICK_ACTION_BUTTON_SIZE)
             .clickable(
+                enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = {},
+                onClick = onClick,
             ),
     ) {
         Image(
@@ -170,7 +192,14 @@ private fun JoystickActionButton(
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Fit,
         )
-        if (isPressed) {
+        if (!enabled) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = DISABLED_OVERLAY_ALPHA)),
+            )
+        } else if (isPressed) {
             Image(
                 painter = painterResource(Res.drawable.golden_overlay),
                 contentDescription = null,
@@ -182,3 +211,4 @@ private fun JoystickActionButton(
 }
 
 private val JOYSTICK_ACTION_BUTTON_SIZE = 56.dp
+private const val DISABLED_OVERLAY_ALPHA = 0.55f
