@@ -35,12 +35,13 @@ import platform.RES_ID_MUSIC_3
 import platform.randomUUID
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.loser
-import sumo.shared.generated.resources.rikishi_blue
 import sumo.shared.generated.resources.rikishi_blue_push
-import sumo.shared.generated.resources.rikishi_red
+import sumo.shared.generated.resources.rikishi_blue_standing
 import sumo.shared.generated.resources.rikishi_red_push
+import sumo.shared.generated.resources.rikishi_red_standing
 import sumo.shared.generated.resources.winner
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
 
 class GameViewModel(
     private val applyDamage: ApplyDamage,
@@ -131,7 +132,7 @@ class GameViewModel(
     private fun scheduleNextPowerMove(powerMove: PowerMove) {
         val session = gameSession.value
         powerMoveTimerJobs[powerMove] = scope.launch {
-            delay(randomPowerMoveDelayMillis())
+            delay(randomPowerMoveDelayMillis().milliseconds)
             if (session == gameSession.value && isGameInProgress()) {
                 _state.update { state -> state.withPowerMoveEnabled(powerMove, true) }
             }
@@ -494,9 +495,9 @@ class GameViewModel(
             }
         } else {
             if (player.position == Position.TOP) {
-                if (state.ui.isTopPushing) Res.drawable.rikishi_blue_push else Res.drawable.rikishi_blue
+                if (state.ui.isTopPushing) Res.drawable.rikishi_blue_push else Res.drawable.rikishi_blue_standing
             } else {
-                if (state.ui.isBottomPushing) Res.drawable.rikishi_red_push else Res.drawable.rikishi_red
+                if (state.ui.isBottomPushing) Res.drawable.rikishi_red_push else Res.drawable.rikishi_red_standing
             }
         }
     }
@@ -518,7 +519,7 @@ class GameViewModel(
     private fun startGameCeremony() {
         val session = gameSession.value
         startCeremonyJob = scope.launch {
-            delay(START_CEREMONY_DURATION_MILLIS)
+            delay(START_CEREMONY_DURATION_MILLIS.milliseconds)
             if (
                 session != gameSession.value ||
                 state.value.playState != PlayState.STARTING
@@ -553,7 +554,7 @@ private fun GameState.withPowerMoveEnabled(
     PowerMove.PULL -> copy(isPullPowerMoveEnabled = enabled)
 }
 
-internal const val POWER_MOVE_MIN_DELAY_MILLIS = 8_000L
+internal const val POWER_MOVE_MIN_DELAY_MILLIS = 8_888L
 internal const val POWER_MOVE_MAX_DELAY_MILLIS = 30_000L
 private const val START_CEREMONY_DURATION_MILLIS = 3_000L
 
@@ -596,14 +597,14 @@ private fun GameState.withPowerMoveAppearance(
                 foregroundImage = if (isTopPushing) {
                     Res.drawable.rikishi_blue_push
                 } else {
-                    Res.drawable.rikishi_blue
+                    Res.drawable.rikishi_blue_standing
                 },
             ),
             bottomThumbView = ui.bottomThumbView.copy(
                 foregroundImage = if (isBottomPushing) {
                     Res.drawable.rikishi_red_push
                 } else {
-                    Res.drawable.rikishi_red
+                    Res.drawable.rikishi_red_standing
                 },
             ),
             isTopPushing = isTopPushing,

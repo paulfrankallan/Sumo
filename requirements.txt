@@ -42,6 +42,15 @@ E.g. ideas so far: Gunbai — 軍配 — Sumo referee's fan, or 力 — Chikara 
 Gyōji = referee in the ring.
 Shimpan = judges around the ring who can overrule the Gyōji.
 
+
+Referee Call	Romaji	Meaning
+はっけよい / 発気揚々	Hakkeyoi	"Put some spirit into it!" (Shouted at the start or when the action stalls)
+残った、残った！	Nokotta, nokotta!	"You're still in it!" / "Still remaining!" (Shouted rapidly while the wrestlers are actively fighting to show the match is ongoing)
+勝負あり！	Shōbu ari!	"The match is decided!" (Shouted to signal the end of the bout)
+
+Te o tsuite - Put your hands down (Shouted to signal the start of the bout)
+Matta-nashi - No waiting (Shouted to signal the start of the bout)
+
 Terms
 PhysicsEngine, GameLoop,
 Attacker, Defender

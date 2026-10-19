@@ -1,5 +1,8 @@
 package feature.game.presentation.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -35,7 +38,6 @@ fun StartCeremonyView(
     modifier: Modifier = Modifier,
 ) {
     if (
-        !isVisible ||
         arenaCentre == null ||
         arenaRadius == null ||
         rikishiRadius == null
@@ -43,44 +45,53 @@ fun StartCeremonyView(
         return
     }
 
-    val waveTransition = rememberInfiniteTransition(label = "Gunbai wave")
-    val waveRotation = waveTransition.animateFloat(
-        initialValue = -GUNBAI_WAVE_ANGLE_DEGREES,
-        targetValue = GUNBAI_WAVE_ANGLE_DEGREES,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = GUNBAI_WAVE_DURATION_MILLIS,
-                easing = LinearEasing,
-            ),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "Gunbai rotation",
-    )
     val density = LocalDensity.current
     val gunbaiSizePx = rikishiRadius * 2f * GUNBAI_SIZE_RIKISHI_DIAMETER_MULTIPLIER
     val gunbaiSize = with(density) { gunbaiSizePx.toDp() }
     val tawaraInsetPx = with(density) { GUNBAI_TAWARA_INSET.toPx() }
     val centredVertically = (arenaCentre.y - gunbaiSizePx / 2f).roundToInt()
 
-    Box(modifier = modifier.fillMaxSize()) {
-        WavingGunbai(
-            topLeft = IntOffset(
-                x = (arenaCentre.x - arenaRadius + tawaraInsetPx).roundToInt(),
-                y = centredVertically,
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = EnterTransition.None,
+        exit = fadeOut(
+            animationSpec = tween(durationMillis = GUNBAI_FADE_OUT_DURATION_MILLIS),
+        ),
+    ) {
+        val waveTransition = rememberInfiniteTransition(label = "Gunbai wave")
+        val waveRotation = waveTransition.animateFloat(
+            initialValue = -GUNBAI_WAVE_ANGLE_DEGREES,
+            targetValue = GUNBAI_WAVE_ANGLE_DEGREES,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = GUNBAI_WAVE_DURATION_MILLIS,
+                    easing = LinearEasing,
+                ),
+                repeatMode = RepeatMode.Reverse,
             ),
-            imageSize = gunbaiSize,
-            rotationDegrees = LEFT_GUNBAI_FACING_DEGREES + waveRotation.value,
+            label = "Gunbai rotation",
         )
-        WavingGunbai(
-            topLeft = IntOffset(
-                x = (
-                    arenaCentre.x + arenaRadius - tawaraInsetPx - gunbaiSizePx
-                ).roundToInt(),
-                y = centredVertically,
-            ),
-            imageSize = gunbaiSize,
-            rotationDegrees = RIGHT_GUNBAI_FACING_DEGREES - waveRotation.value,
-        )
+
+        Box(modifier = modifier.fillMaxSize()) {
+            WavingGunbai(
+                topLeft = IntOffset(
+                    x = (arenaCentre.x - arenaRadius + tawaraInsetPx).roundToInt(),
+                    y = centredVertically,
+                ),
+                imageSize = gunbaiSize,
+                rotationDegrees = LEFT_GUNBAI_FACING_DEGREES + waveRotation.value,
+            )
+            WavingGunbai(
+                topLeft = IntOffset(
+                    x = (
+                        arenaCentre.x + arenaRadius - tawaraInsetPx - gunbaiSizePx
+                    ).roundToInt(),
+                    y = centredVertically,
+                ),
+                imageSize = gunbaiSize,
+                rotationDegrees = RIGHT_GUNBAI_FACING_DEGREES - waveRotation.value,
+            )
+        }
     }
 }
 
@@ -102,7 +113,8 @@ private fun BoxScope.WavingGunbai(
 }
 
 private const val GUNBAI_WAVE_ANGLE_DEGREES = 13f
-private const val GUNBAI_WAVE_DURATION_MILLIS = 300
+private const val GUNBAI_WAVE_DURATION_MILLIS = 500
+private const val GUNBAI_FADE_OUT_DURATION_MILLIS = 1_000
 private const val GUNBAI_SIZE_RIKISHI_DIAMETER_MULTIPLIER = 1.5f
 private const val LEFT_GUNBAI_FACING_DEGREES = 90f
 private const val RIGHT_GUNBAI_FACING_DEGREES = -90f

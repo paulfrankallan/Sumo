@@ -210,5 +210,5 @@ private fun JoystickActionButton(
     }
 }
 
-private val JOYSTICK_ACTION_BUTTON_SIZE = 56.dp
-private const val DISABLED_OVERLAY_ALPHA = 0.55f
+private val JOYSTICK_ACTION_BUTTON_SIZE = 64.dp
+private const val DISABLED_OVERLAY_ALPHA = 0.50f
