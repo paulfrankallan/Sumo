@@ -27,8 +27,11 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.rikishi_blue_standing
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 @Composable
@@ -47,6 +50,7 @@ fun Rikishi(
     onPressed: (Boolean) -> Unit,
     onReleased: (Boolean) -> Unit,
     rotationDegrees: Float = 0f,
+    isPushing: Boolean = false,
     // When false, disable touch-based control — only joystick input will move Rikishi.
     isFullContact: Boolean = false,
 ) {
@@ -58,6 +62,11 @@ fun Rikishi(
         painterResource(resource = spotBackgroundImage)
     }
     val imageSize = Size(spotDiameterPx, spotDiameterPx)
+    val foregroundImageOffset = if (isPushing) {
+        pushImageOffset(rotationDegrees, spotDiameterPx)
+    } else {
+        Offset.Zero
+    }
     val intOffset = remember { mutableStateOf(IntOffset(0, 0)) }
     val circleCenter = Offset(spotRadiusPx, spotRadiusPx)
     val isDragging = remember { mutableStateOf(false) }
@@ -146,6 +155,7 @@ fun Rikishi(
         with(painterForeground) {
             drawIntoCanvas { canvas ->
                 canvas.withSave {
+                    canvas.translate(foregroundImageOffset.x, foregroundImageOffset.y)
                     canvas.rotate(rotationDegrees, center.x, center.y)
                     draw(
                         size = imageSize,
@@ -177,3 +187,18 @@ fun isTouchOutsideCircle(
     )
     return distance > circleRadius
 }
+
+private fun pushImageOffset(
+    rotationDegrees: Float,
+    spotDiameterPx: Float,
+): Offset {
+    val radians = rotationDegrees.toDouble() * PI / 180.0
+    val distance = spotDiameterPx * PUSH_IMAGE_FORWARD_OFFSET_RATIO
+    return Offset(
+        x = (-sin(radians) * distance).toFloat(),
+        y = (cos(radians) * distance).toFloat(),
+    )
+}
+
+// Counteracts transparent padding at the pushing hands without changing collision physics.
+private const val PUSH_IMAGE_FORWARD_OFFSET_RATIO = 0.015f

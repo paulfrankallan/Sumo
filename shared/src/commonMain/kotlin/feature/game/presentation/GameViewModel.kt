@@ -36,9 +36,9 @@ import platform.randomUUID
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.loser
 import sumo.shared.generated.resources.rikishi_blue_push
-import sumo.shared.generated.resources.rikishi_blue_standing
+import sumo.shared.generated.resources.rikishi_blue_standing_builter
 import sumo.shared.generated.resources.rikishi_red_push
-import sumo.shared.generated.resources.rikishi_red_standing
+import sumo.shared.generated.resources.rikishi_red_standing_builter
 import sumo.shared.generated.resources.winner
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
@@ -495,9 +495,17 @@ class GameViewModel(
             }
         } else {
             if (player.position == Position.TOP) {
-                if (state.ui.isTopPushing) Res.drawable.rikishi_blue_push else Res.drawable.rikishi_blue_standing
+                if (state.ui.isTopPushing) {
+                    Res.drawable.rikishi_blue_push
+                } else {
+                    Res.drawable.rikishi_blue_standing_builter
+                }
             } else {
-                if (state.ui.isBottomPushing) Res.drawable.rikishi_red_push else Res.drawable.rikishi_red_standing
+                if (state.ui.isBottomPushing) {
+                    Res.drawable.rikishi_red_push
+                } else {
+                    Res.drawable.rikishi_red_standing_builter
+                }
             }
         }
     }
@@ -531,6 +539,10 @@ class GameViewModel(
                 state.copy(
                     isStartCeremonyVisible = false,
                     playState = PlayState.IN_PROGRESS,
+                    ui = state.ui.withRikishiImages(
+                        topIsPushing = false,
+                        bottomIsPushing = false,
+                    ),
                 )
             }
             PowerMove.entries.forEach(::resetPowerMoveTimer)
@@ -569,46 +581,37 @@ private fun GameState.withPowerMoveAppearance(
     pushLungingPlayerId: String?,
     pullAttackerId: String?,
 ): GameState {
-    if (isGameOver) return this
+    if (isGameOver || playState != PlayState.IN_PROGRESS) return this
 
     val activeAttackerId = pullAttackerId ?: pushLungingPlayerId
-    val hasActivePowerMove = activeAttackerId == topPlayer.id ||
-        activeAttackerId == bottomPlayer.id
-    val isTopPushing = if (hasActivePowerMove) {
-        activeAttackerId == topPlayer.id
-    } else {
-        touching
-    }
-    val isBottomPushing = if (hasActivePowerMove) {
-        activeAttackerId == bottomPlayer.id
-    } else {
-        touching
-    }
-    if (
-        ui.isTopPushing == isTopPushing &&
-        ui.isBottomPushing == isBottomPushing
-    ) {
-        return this
-    }
-
-    return copy(
-        ui = ui.copy(
-            topThumbView = ui.topThumbView.copy(
-                foregroundImage = if (isTopPushing) {
-                    Res.drawable.rikishi_blue_push
-                } else {
-                    Res.drawable.rikishi_blue_standing
-                },
-            ),
-            bottomThumbView = ui.bottomThumbView.copy(
-                foregroundImage = if (isBottomPushing) {
-                    Res.drawable.rikishi_red_push
-                } else {
-                    Res.drawable.rikishi_red_standing
-                },
-            ),
-            isTopPushing = isTopPushing,
-            isBottomPushing = isBottomPushing,
-        )
+    val isTopPushing = touching || activeAttackerId == topPlayer.id
+    val isBottomPushing = touching || activeAttackerId == bottomPlayer.id
+    val updatedUi = ui.withRikishiImages(
+        topIsPushing = isTopPushing,
+        bottomIsPushing = isBottomPushing,
     )
+
+    return if (ui == updatedUi) this else copy(ui = updatedUi)
 }
+
+private fun UI.withRikishiImages(
+    topIsPushing: Boolean,
+    bottomIsPushing: Boolean,
+): UI = copy(
+    topThumbView = topThumbView.copy(
+        foregroundImage = if (topIsPushing) {
+            Res.drawable.rikishi_blue_push
+        } else {
+            Res.drawable.rikishi_blue_standing_builter
+        },
+    ),
+    bottomThumbView = bottomThumbView.copy(
+        foregroundImage = if (bottomIsPushing) {
+            Res.drawable.rikishi_red_push
+        } else {
+            Res.drawable.rikishi_red_standing_builter
+        },
+    ),
+    isTopPushing = topIsPushing,
+    isBottomPushing = bottomIsPushing,
+)

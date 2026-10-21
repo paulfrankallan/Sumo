@@ -11,8 +11,8 @@ import feature.game.domain.model.GameOverResult
 import feature.game.presentation.model.Player
 import org.jetbrains.compose.resources.DrawableResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.rikishi_blue_standing
-import sumo.shared.generated.resources.rikishi_red_standing
+import sumo.shared.generated.resources.rikishi_blue_crouch
+import sumo.shared.generated.resources.rikishi_red_crouch
 
 data class GameState(
     val navigateTo: NavigationEvent? = null,
@@ -42,11 +42,11 @@ data class GameState(
 data class UI(
     val topThumbView: ThumbViewState = ThumbViewState(
         foregroundColor = null,
-        foregroundImage = Res.drawable.rikishi_blue_standing,
+        foregroundImage = Res.drawable.rikishi_blue_crouch,
     ),
     val bottomThumbView: ThumbViewState = ThumbViewState(
         foregroundColor = null,
-        foregroundImage = Res.drawable.rikishi_red_standing,
+        foregroundImage = Res.drawable.rikishi_red_crouch,
     ),
     val isTopPushing: Boolean = false,
     val isBottomPushing: Boolean = false,

@@ -162,6 +162,7 @@ fun Dohyo(
             onReleased = { onReleased(currentState.value.topPlayer) },
             spotDiameter = spotDiameter,
             rotationDegrees = rotationDegrees,
+            isPushing = state.ui.isTopPushing,
             isFullContact = isFullContact,
         )
 
@@ -184,6 +185,7 @@ fun Dohyo(
             onReleased = { onReleased(currentState.value.bottomPlayer) },
             spotDiameter = spotDiameter,
             rotationDegrees = rotationDegrees + 180f,
+            isPushing = state.ui.isBottomPushing,
             isFullContact = isFullContact,
         )
 
