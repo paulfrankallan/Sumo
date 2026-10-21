@@ -88,6 +88,7 @@ fun GameScreen(
         bottomJoystickState = bottomJoystickState,
         onIntent = viewModel::onIntent,
         onSubmitInput = viewModel::submitInput,
+        onSubmitRapidTap = viewModel::submitRapidTap,
         isFullContact = isFullContact,
     )
 
@@ -103,6 +104,7 @@ fun GameScreenContent(
     bottomJoystickState: JoystickState,
     onIntent: (Intent) -> Unit,
     onSubmitInput: (InputCommand) -> Unit,
+    onSubmitRapidTap: (String, Offset) -> Unit,
     isFullContact: Boolean = false,
 ) {
     Box(
@@ -148,9 +150,17 @@ fun GameScreenContent(
                         )
                     )
                 },
-                onMoveStart = {
+                onMoveStart = { snapshot ->
                     if (state.playState != PlayState.IN_PROGRESS || state.isGameOver) {
                         onIntent(GameIntent.StartGame)
+                    }
+                    joystickTapDirection(
+                        position = snapshot.position,
+                        center = topJoystickState.center,
+                        strength = snapshot.strength,
+                        reverse = true,
+                    )?.let { direction ->
+                        onSubmitRapidTap(state.topPlayer.id, direction)
                     }
                 },
                 onMove = { snapshot ->
@@ -224,9 +234,17 @@ fun GameScreenContent(
                         )
                     )
                 },
-                onMoveStart = {
+                onMoveStart = { snapshot ->
                     if (state.playState != PlayState.IN_PROGRESS || state.isGameOver) {
                         onIntent(GameIntent.StartGame)
+                    }
+                    joystickTapDirection(
+                        position = snapshot.position,
+                        center = bottomJoystickState.center,
+                        strength = snapshot.strength,
+                        reverse = false,
+                    )?.let { direction ->
+                        onSubmitRapidTap(state.bottomPlayer.id, direction)
                     }
                 },
                 onMove = { snapshot ->
@@ -265,7 +283,29 @@ private fun GameScreenContentPreview() {
         bottomJoystickState = rememberJoystickState(),
         onIntent = {},
         onSubmitInput = {},
+        onSubmitRapidTap = { _, _ -> },
     )
+}
+
+private fun joystickTapDirection(
+    position: Offset,
+    center: Offset,
+    strength: Float,
+    reverse: Boolean,
+): Offset? {
+    if (strength <= 0f) return null
+
+    val direction = Offset(
+        x = position.x - center.x,
+        y = position.y - center.y,
+    )
+    if (direction == Offset.Zero) return null
+
+    return if (reverse) {
+        Offset(x = -direction.x, y = -direction.y)
+    } else {
+        direction
+    }
 }
 
 private const val JOYSTICK_INPUT_SCALE = 6f

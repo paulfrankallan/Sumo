@@ -100,6 +100,12 @@ class GameViewModel(
         }
     }
 
+    fun submitRapidTap(playerId: String, direction: Offset) {
+        if (isGameInProgress()) {
+            gameLoop.submitRapidTap(playerId, direction)
+        }
+    }
+
     private fun launchGameAudio(playAudio: () -> Unit) {
         val session = gameSession.value
         scope.launch(Dispatchers.Default) {

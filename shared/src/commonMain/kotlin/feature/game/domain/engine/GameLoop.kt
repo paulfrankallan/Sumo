@@ -70,7 +70,10 @@ class GameLoop(
 
     // Unlimited capacity so input producers never block or drop commands.
     private val inputChannel = Channel<InputCommand>(capacity = Channel.UNLIMITED)
+    private val rapidTapChannel = Channel<RapidTapCommand>(capacity = Channel.UNLIMITED)
     private val powerMoveChannel = Channel<PowerMoveCommand>(capacity = Channel.UNLIMITED)
+    private val rapidTapStateByPlayer = mutableMapOf<String, RapidTapState>()
+    private val inputTimeOrigin = TimeSource.Monotonic.markNow()
 
     private var loopJob: Job? = null
     private var activePushLunge: PushLunge? = null
@@ -84,6 +87,18 @@ class GameLoop(
     fun submitInput(command: InputCommand) {
         if (command.source == InputSource.DIRECT_DRAG && command.playerId in dragBlockedPlayers) return
         inputChannel.trySend(command)
+    }
+
+    /** Queues a directional joystick tap for possible contact-only pushing power. */
+    fun submitRapidTap(playerId: String, direction: Offset) {
+        if (direction == Offset.Zero) return
+        rapidTapChannel.trySend(
+            RapidTapCommand(
+                playerId = playerId,
+                direction = direction,
+                timestampMillis = inputTimeOrigin.elapsedNow().inWholeMilliseconds,
+            )
+        )
     }
 
     /** Queues a one-shot [powerMove] for [playerId] to apply on the next physics frame. */
@@ -100,6 +115,8 @@ class GameLoop(
         dragBlockedPlayers.clear()
         clearPushLunge()
         clearPullAction()
+        clearRapidTapPower()
+        drainRapidTapChannel()
         drainPowerMoveChannel()
         _worldState.value = initialWorld
         loopJob = scope.launch {
@@ -109,6 +126,7 @@ class GameLoop(
                 _worldState.value?.let { world = it }
                 val frameStart = timeSource.markNow()
                 val commands = drainInputChannel()
+                val rapidTaps = drainRapidTapChannel()
                 drainPowerMoveChannel().forEach { command ->
                     when (command.powerMove) {
                         PowerMove.PUSH -> startPushLunge(world, command.playerId)
@@ -126,6 +144,12 @@ class GameLoop(
                 val frameCommands = commands
                     .filterNot { it.playerId in blockedPlayerIds }
                     .toMutableList()
+                if (activePushLunge == null && activePullAction == null) {
+                    recordRapidTaps(world, rapidTaps)
+                    frameCommands += rapidTapForceCommands(world)
+                } else {
+                    clearRapidTapPower()
+                }
                 activePushLunge?.let { lunge ->
                     frameCommands += InputCommand(
                         playerId = lunge.playerId,
@@ -157,7 +181,11 @@ class GameLoop(
                 if (result.events.any { it is PhysicsEvent.BoundaryViolation }) {
                     clearPushLunge()
                     clearPullAction()
+                    clearRapidTapPower()
                 } else {
+                    if (!areRikishiInContact(world.topRikishi, world.bottomRikishi)) {
+                        clearRapidTapPower()
+                    }
                     advancePushLunge()
                     advancePullAction(world)
                 }
@@ -173,9 +201,11 @@ class GameLoop(
         loopJob?.cancel()
         loopJob = null
         drainInputChannel()
+        drainRapidTapChannel()
         drainPowerMoveChannel()
         clearPushLunge()
         clearPullAction()
+        clearRapidTapPower()
         dragBlockedPlayers.clear()
     }
 
@@ -185,9 +215,11 @@ class GameLoop(
      */
     fun reset(newWorld: GameWorld) {
         drainInputChannel() // discard stale commands
+        drainRapidTapChannel()
         drainPowerMoveChannel()
         clearPushLunge()
         clearPullAction()
+        clearRapidTapPower()
         _worldState.value = newWorld
     }
 
@@ -215,6 +247,16 @@ class GameLoop(
         return commands
     }
 
+    /** Drains all pending rapid joystick taps without suspending. */
+    private fun drainRapidTapChannel(): List<RapidTapCommand> {
+        val commands = mutableListOf<RapidTapCommand>()
+        while (true) {
+            val command = rapidTapChannel.tryReceive().getOrNull() ?: break
+            commands += command
+        }
+        return commands
+    }
+
     /** Drains all pending power moves without suspending. */
     private fun drainPowerMoveChannel(): List<PowerMoveCommand> {
         val commands = mutableListOf<PowerMoveCommand>()
@@ -223,6 +265,133 @@ class GameLoop(
             commands += command
         }
         return commands
+    }
+
+    private fun recordRapidTaps(
+        world: GameWorld,
+        rapidTaps: List<RapidTapCommand>,
+    ) {
+        rapidTaps.forEach { tap ->
+            val (player, opponent) = powerMoveParticipants(world, tap.playerId)
+                ?: return@forEach
+            if (
+                !areRikishiInContact(player, opponent) ||
+                !isDirectionTowardsOpponent(tap.direction, player, opponent)
+            ) {
+                return@forEach
+            }
+
+            val rapidTapState = rapidTapStateByPlayer.getOrPut(tap.playerId) {
+                RapidTapState()
+            }
+            val previousTapTimestamp = rapidTapState.lastTapTimestampMillis
+            val intervalMillis = previousTapTimestamp?.let {
+                tap.timestampMillis - it
+            }
+            if (
+                intervalMillis == null ||
+                intervalMillis <= 0L ||
+                intervalMillis > RAPID_TAP_STREAK_GAP_MILLIS
+            ) {
+                rapidTapState.intervalsMillis.clear()
+            } else {
+                rapidTapState.intervalsMillis += intervalMillis
+                if (rapidTapState.intervalsMillis.size > RAPID_TAP_RATE_SAMPLE_COUNT) {
+                    rapidTapState.intervalsMillis.removeAt(0)
+                }
+            }
+            rapidTapState.lastTapTimestampMillis = tap.timestampMillis
+        }
+    }
+
+    private fun rapidTapForceCommands(world: GameWorld): List<InputCommand> {
+        val topRikishi = world.topRikishi
+        val bottomRikishi = world.bottomRikishi
+        if (!areRikishiInContact(topRikishi, bottomRikishi)) {
+            clearRapidTapPower()
+            return emptyList()
+        }
+
+        val distance = distanceBetween(topRikishi.position, bottomRikishi.position)
+        if (distance == 0f) return emptyList()
+
+        val nowMillis = inputTimeOrigin.elapsedNow().inWholeMilliseconds
+        val topForce = rapidTapForce(topRikishi.id, nowMillis)
+        val bottomForce = rapidTapForce(bottomRikishi.id, nowMillis)
+        if (topForce == 0f && bottomForce == 0f) return emptyList()
+
+        val normal = Offset(
+            x = (bottomRikishi.position.x - topRikishi.position.x) / distance,
+            y = (bottomRikishi.position.y - topRikishi.position.y) / distance,
+        )
+        return buildList {
+            if (topForce > 0f) {
+                add(
+                    InputCommand(
+                        playerId = topRikishi.id,
+                        velocityVector = Offset(
+                            x = normal.x * topForce,
+                            y = normal.y * topForce,
+                        ),
+                        source = InputSource.RAPID_TAP,
+                    )
+                )
+            }
+            if (bottomForce > 0f) {
+                add(
+                    InputCommand(
+                        playerId = bottomRikishi.id,
+                        velocityVector = Offset(
+                            x = -normal.x * bottomForce,
+                            y = -normal.y * bottomForce,
+                        ),
+                        source = InputSource.RAPID_TAP,
+                    )
+                )
+            }
+        }
+    }
+
+    private fun rapidTapForce(playerId: String, nowMillis: Long): Float {
+        val rapidTapState = rapidTapStateByPlayer[playerId] ?: return 0f
+        val lastTapTimestamp = rapidTapState.lastTapTimestampMillis ?: return 0f
+        val idleMillis = nowMillis - lastTapTimestamp
+        if (idleMillis >= RAPID_TAP_STREAK_GAP_MILLIS) {
+            rapidTapStateByPlayer.remove(playerId)
+            return 0f
+        }
+        if (
+            idleMillis >= RAPID_TAP_FORCE_TIMEOUT_MILLIS ||
+            rapidTapState.intervalsMillis.isEmpty()
+        ) {
+            return 0f
+        }
+
+        val averageIntervalMillis = rapidTapState.intervalsMillis.average()
+        if (averageIntervalMillis <= 0.0) return 0f
+
+        val tapsPerSecond = (
+            MILLIS_PER_SECOND / averageIntervalMillis.toFloat()
+            ).coerceAtMost(MAX_RAPID_TAPS_PER_SECOND)
+        return tapsPerSecond / MAX_RAPID_TAPS_PER_SECOND * RAPID_TAP_MAX_FORCE_PER_TICK
+    }
+
+    private fun isDirectionTowardsOpponent(
+        direction: Offset,
+        player: RikishiBody,
+        opponent: RikishiBody,
+    ): Boolean {
+        val opponentDirection = Offset(
+            x = opponent.position.x - player.position.x,
+            y = opponent.position.y - player.position.y,
+        )
+        if (direction == Offset.Zero || opponentDirection == Offset.Zero) return false
+
+        return direction.x * opponentDirection.x + direction.y * opponentDirection.y > 0f
+    }
+
+    private fun clearRapidTapPower() {
+        rapidTapStateByPlayer.clear()
     }
 
     private fun startPushLunge(world: GameWorld, playerId: String) {
@@ -267,6 +436,7 @@ class GameLoop(
             ),
             ticksRemaining = PUSH_LUNGE_TICK_COUNT,
         )
+        clearRapidTapPower()
         _activePushLungePlayerId.value = playerId
     }
 
@@ -312,7 +482,7 @@ class GameLoop(
         val distance = distanceBetween(attacker.position, defender.position)
         val canReachDefender = distance <= contactDistance * PULL_REACH_MULTIPLIER
 
-        if (distance <= contactDistance + PULL_CONTACT_TOLERANCE) {
+        if (areRikishiInContact(attacker, defender)) {
             if (!startPullTurn(world, playerId, defender.id)) {
                 startFailedPullLunge(
                     world = world,
@@ -320,6 +490,7 @@ class GameLoop(
                     defender = defender,
                 )
             }
+            clearRapidTapPower()
             return
         }
 
@@ -341,6 +512,7 @@ class GameLoop(
             ),
             ticksRemaining = PULL_LUNGE_TICK_COUNT,
         )
+        clearRapidTapPower()
     }
 
     private fun advancePullAction(world: GameWorld) {
@@ -494,8 +666,7 @@ class GameLoop(
         val (attacker, defender) = powerMoveParticipants(world, action.attackerId) ?: return false
         if (defender.id != action.defenderId) return false
 
-        return distanceBetween(attacker.position, defender.position) <=
-            attacker.radius + defender.radius + PULL_CONTACT_TOLERANCE
+        return areRikishiInContact(attacker, defender)
     }
 
     private fun powerMoveParticipants(
@@ -514,6 +685,10 @@ class GameLoop(
         return sqrt(x * x + y * y)
     }
 
+    private fun areRikishiInContact(first: RikishiBody, second: RikishiBody): Boolean =
+        distanceBetween(first.position, second.position) <=
+            first.radius + second.radius + RIKISHI_CONTACT_TOLERANCE
+
     private fun rotate(offset: Offset, radians: Float): Offset {
         val cosine = cos(radians.toDouble()).toFloat()
         val sine = sin(radians.toDouble()).toFloat()
@@ -531,6 +706,17 @@ class GameLoop(
     private data class PowerMoveCommand(
         val playerId: String,
         val powerMove: PowerMove,
+    )
+
+    private data class RapidTapCommand(
+        val playerId: String,
+        val direction: Offset,
+        val timestampMillis: Long,
+    )
+
+    private data class RapidTapState(
+        var lastTapTimestampMillis: Long? = null,
+        val intervalsMillis: MutableList<Long> = mutableListOf(),
     )
 
     private data class PushLunge(
@@ -566,11 +752,17 @@ class GameLoop(
         private const val PUSH_LUNGE_DISTANCE_RATIO = 0.5f
         // Two rikishi widths is the maximum distance from which a pull can connect.
         private const val PULL_REACH_MULTIPLIER = 2f
-        private const val PULL_CONTACT_TOLERANCE = 1f
+        private const val RIKISHI_CONTACT_TOLERANCE = 1f
         private const val PULL_LUNGE_TICK_COUNT = 12
         private const val PULL_TURN_TICK_COUNT = 24
         private const val PULL_FAILED_CONTACT_LUNGE_DISTANCE_RATIO = 0.5f
         private const val PULL_MIN_EDGE_GAIN = 1f
         private const val PULL_MIN_TURN_RADIANS = 0.017453292f
+        private const val RAPID_TAP_STREAK_GAP_MILLIS = 500L
+        private const val RAPID_TAP_FORCE_TIMEOUT_MILLIS = 300L
+        private const val RAPID_TAP_RATE_SAMPLE_COUNT = 5
+        private const val MAX_RAPID_TAPS_PER_SECOND = 25f
+        private const val RAPID_TAP_MAX_FORCE_PER_TICK = 6f
+        private const val MILLIS_PER_SECOND = 1_000f
     }
 }

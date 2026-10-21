@@ -19,6 +19,7 @@ data class InputCommand(
 
 enum class InputSource {
     JOYSTICK,
+    RAPID_TAP,
     DIRECT_DRAG,
     POWER_MOVE,
 }

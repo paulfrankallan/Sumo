@@ -26,7 +26,7 @@ import app.theme.appRed
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.rikishi_blue_standing
+import sumo.shared.generated.resources.rikishi_blue_standing_builter
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
@@ -40,7 +40,7 @@ fun Rikishi(
     spotBackgroundColor: Color = Color.Transparent,//Color.Black,
     spotBackgroundImage: DrawableResource? = null,
     spotForegroundColor: Color?,
-    spotForegroundImage: DrawableResource = Res.drawable.rikishi_blue_standing,
+    spotForegroundImage: DrawableResource = Res.drawable.rikishi_blue_standing_builter,
     thumbOffsetPosition: Offset,
     isOutOfBounds: Boolean,
     updateThumbOffsetPosition: (Offset) -> Unit = {},
