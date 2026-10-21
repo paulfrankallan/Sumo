@@ -27,7 +27,7 @@ TODO
 * Game JoyPad Controls - Done
 * Game Over Winner Scrim -
 * Power ups feature - Done
-* Animatable Rikishi red, blue, red_pushing, blue_pushing -
+* Animatable Rikishi red, blue, red_pushing, blue_pushing - Done
 * Hakkeyoi Feature - Done
 
 * Crowd cheering sound effect
@@ -48,9 +48,6 @@ Referee Call	Romaji	Meaning
 残った、残った！	Nokotta, nokotta!	"You're still in it!" / "Still remaining!" (Shouted rapidly while the wrestlers are actively fighting to show the match is ongoing)
 勝負あり！	Shōbu ari!	"The match is decided!" (Shouted to signal the end of the bout)
 
-Te o tsuite - Put your hands down (Shouted to signal the start of the bout)
-Matta-nashi - No waiting (Shouted to signal the start of the bout)
-
 Terms
 PhysicsEngine, GameLoop,
 Attacker, Defender
@@ -63,4 +60,52 @@ TODO
 * Game Over Winner Scrim
 * jikan desu - translates to "it is time," shouted by the referee (gyoji) right before a bout begins.
 
+Jikan desu - translates to "it is time," shouted by the referee (gyoji) right before a bout begins.
+Te o tsuite - Put your hands down (Shouted to signal the start of the bout)
+Matta-nashi - No waiting (Shouted to signal the start of the bout)
 
+Game states: NEW, STARTING, IN_PROGRESS, FINISHED
+
+Plan:
+
+From HomeScreen tap the play button to go to the GameScreen.
+When the game screen loads it is in the NEW state.
+
+Make these changes:
+
+In the NEW state:
+ * Gameplay input is not accepted.
+ * Play ambient crowd noise.
+ * The Rikishi should be at their respective sides of the Tawara, say 48dp from the edge.
+ * The Rikishi are in the standing pose (rikishi_blue_standing.png and rikishi_red_standing.png).
+ * Play "Matta-nashi" (no waiting) sound effect at random intervals of 5 to 15 seconds.
+ * When the player taps start button to start the game, change state to STARTING.
+
+Currently the user interacts with the joystick to start the game.
+Change it to: When the player taps start button to start the game.
+
+ * state changes to STARTING
+
+ In the STARTING state:
+
+ * Play "Jikan desu" (it is time) sound effect .
+ * Players walk to the center of the ring and stop at the Shikiri-sen facing each other.
+ * Play "Te o tsuite" (put your hands down) sound effect.
+ * Change Rikishi to crouching pose (rikishi_blue_crouching.png and rikishi_red_crouching.png).
+ * Play 3 second Gunbai waving animation.
+
+
+* state changes to IN_PROGRESS - Game is active and gameplay input is accepted.
+
+In the IN_PROGRESS state:
+
+* Play the Hakkeyoi sound effect as it is implemented now; i.e. based on the Rikishi haven't moved enough rules.
+* Play Nokotta, nokotta sound effect when a Rikishi is injured after they are reset to signify that the match is still ongoing.
+
+State changes to FINISHED when one of the Rikishi loses all of their health.
+
+* state changes to FINISHED
+
+In the FINISHED state:
+
+* Play "Shōbu ari!" (the match is decided) sound effect.

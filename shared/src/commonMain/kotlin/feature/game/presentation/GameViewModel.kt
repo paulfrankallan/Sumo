@@ -36,9 +36,9 @@ import platform.randomUUID
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.loser
 import sumo.shared.generated.resources.rikishi_blue_push
-import sumo.shared.generated.resources.rikishi_blue_standing_builter
+import sumo.shared.generated.resources.rikishi_blue_standing
 import sumo.shared.generated.resources.rikishi_red_push
-import sumo.shared.generated.resources.rikishi_red_standing_builter
+import sumo.shared.generated.resources.rikishi_red_standing
 import sumo.shared.generated.resources.winner
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
@@ -504,13 +504,13 @@ class GameViewModel(
                 if (state.ui.isTopPushing) {
                     Res.drawable.rikishi_blue_push
                 } else {
-                    Res.drawable.rikishi_blue_standing_builter
+                    Res.drawable.rikishi_blue_standing
                 }
             } else {
                 if (state.ui.isBottomPushing) {
                     Res.drawable.rikishi_red_push
                 } else {
-                    Res.drawable.rikishi_red_standing_builter
+                    Res.drawable.rikishi_red_standing
                 }
             }
         }
@@ -608,14 +608,14 @@ private fun UI.withRikishiImages(
         foregroundImage = if (topIsPushing) {
             Res.drawable.rikishi_blue_push
         } else {
-            Res.drawable.rikishi_blue_standing_builter
+            Res.drawable.rikishi_blue_standing
         },
     ),
     bottomThumbView = bottomThumbView.copy(
         foregroundImage = if (bottomIsPushing) {
             Res.drawable.rikishi_red_push
         } else {
-            Res.drawable.rikishi_red_standing_builter
+            Res.drawable.rikishi_red_standing
         },
     ),
     isTopPushing = topIsPushing,

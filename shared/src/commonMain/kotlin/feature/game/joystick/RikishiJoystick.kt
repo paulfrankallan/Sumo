@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -42,8 +41,6 @@ import sumo.shared.generated.resources.controller
 import sumo.shared.generated.resources.golden_overlay
 import sumo.shared.generated.resources.pull_btn
 import sumo.shared.generated.resources.push_btn
-import sumo.shared.generated.resources.throw_btn
-import sumo.shared.generated.resources.thrust_btn
 
 /**
  * A joystick composable tailored for controlling a Rikishi in the Sumo game.
@@ -110,16 +107,12 @@ fun RikishiJoystick(
         ) {
             Column(
                 modifier = Modifier.fillMaxHeight(),
-                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Pull
                 JoystickActionButton(
                     buttonImage = Res.drawable.pull_btn,
                     enabled = isPullPowerMoveEnabled,
                     onClick = onPull,
                 )
-                // Thrust
-                //JoystickActionButton(buttonImage = Res.drawable.thrust_btn)
             }
             BaseVirtualJoystick(
                 modifier = Modifier.size(joystickSize),
@@ -140,16 +133,12 @@ fun RikishiJoystick(
             }
             Column(
                 modifier = Modifier.fillMaxHeight(),
-                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Push
                 JoystickActionButton(
                     buttonImage = Res.drawable.push_btn,
                     enabled = isPushPowerMoveEnabled,
                     onClick = onPush,
                 )
-                // Throw
-                //JoystickActionButton(buttonImage = Res.drawable.throw_btn)
             }
         }
     }
