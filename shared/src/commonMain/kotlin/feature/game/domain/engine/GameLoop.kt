@@ -134,12 +134,14 @@ class GameLoop(
                     }
                 }
                 val blockedPlayerIds = mutableSetOf<String>()
-                activePushLunge?.let { blockedPlayerIds += it.opponentId }
+                // A power move owns both Rikishi until its final physics tick.
+                activePushLunge?.let { lunge ->
+                    blockedPlayerIds += lunge.playerId
+                    blockedPlayerIds += lunge.opponentId
+                }
                 activePullAction?.let { action ->
+                    blockedPlayerIds += action.attackerId
                     blockedPlayerIds += action.defenderId
-                    if (action is PullAction.Turn) {
-                        blockedPlayerIds += action.attackerId
-                    }
                 }
                 val frameCommands = commands
                     .filterNot { it.playerId in blockedPlayerIds }

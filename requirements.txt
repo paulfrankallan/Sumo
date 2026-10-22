@@ -1,47 +1,18 @@
 
-
-Improve the gameplay by adding random power-ups. First player to tap the power-up gets something.
-
-
-Hakkeyoi Feature
-
-Trigger rule options:
-
-Just at random intervals during gameplay.
-
-Trigger rules for playing Hakkeyoi sound effect:
-Both Rikishi haven't moved more than 5dp or equivalent px in space in random of 3 to 10 seconds time.
-Currently the Hakkeyoi sound effect only plays when the game starts but I can hear it
-so I know the sound is wired up and working. I want it to play during gameplay when the above trigger rules are met.
-
-TODO
-
-* App icon - Done
 * App theme -
-* Create AdMob app - Done
 * Ad IDs -
-* Home screen - Done
 * Instructions screen
 * Settings screen -
-* Privacy policy - Done
-* Game JoyPad Controls - Done
 * Game Over Winner Scrim -
-* Power ups feature - Done
-* Animatable Rikishi red, blue, red_pushing, blue_pushing - Done
-* Hakkeyoi Feature - Done
 
 * Crowd cheering sound effect
     - louder when a Rikishi is near the edge of the ring
     - louder when a Rikishi is thrown out of the ring
 
-What other Sumo related mechanisms, symbols, traditions, gimmicks, processes, actions, things, etc,
-would or could translate well to this 2 player Sumo Android mobile game?
-
 E.g. ideas so far: Gunbai — 軍配 — Sumo referee's fan, or 力 — Chikara — “Strength / Power” for power-ups?
 
 Gyōji = referee in the ring.
 Shimpan = judges around the ring who can overrule the Gyōji.
-
 
 Referee Call	Romaji	Meaning
 はっけよい / 発気揚々	Hakkeyoi	"Put some spirit into it!" (Shouted at the start or when the action stalls)
@@ -55,11 +26,8 @@ Opponent
 
 TODO
 
-* After an injury and reset play Nokotta to signify that the match is still ongoing.
-* Wave the Gunbai to start the match.
 * Game Over Winner Scrim
 * jikan desu - translates to "it is time," shouted by the referee (gyoji) right before a bout begins.
-
 Jikan desu - translates to "it is time," shouted by the referee (gyoji) right before a bout begins.
 Te o tsuite - Put your hands down (Shouted to signal the start of the bout)
 Matta-nashi - No waiting (Shouted to signal the start of the bout)
@@ -74,12 +42,9 @@ When the game screen loads it is in the NEW state.
 Make these changes:
 
 In the NEW state:
- * Gameplay input is not accepted.
  * Play ambient crowd noise.
  * The Rikishi should be at their respective sides of the Tawara, say 48dp from the edge.
  * The Rikishi are in the standing pose (rikishi_blue_standing.png and rikishi_red_standing.png).
- * Play "Matta-nashi" (no waiting) sound effect at random intervals of 5 to 15 seconds.
- * When the player taps start button to start the game, change state to STARTING.
 
 Currently the user interacts with the joystick to start the game.
 Change it to: When the player taps start button to start the game.

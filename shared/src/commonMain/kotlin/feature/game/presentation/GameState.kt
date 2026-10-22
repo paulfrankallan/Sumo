@@ -11,8 +11,8 @@ import feature.game.domain.model.GameOverResult
 import feature.game.presentation.model.Player
 import org.jetbrains.compose.resources.DrawableResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.rikishi_blue_crouch
-import sumo.shared.generated.resources.rikishi_red_crouch
+import sumo.shared.generated.resources.rikishi_blue_standing
+import sumo.shared.generated.resources.rikishi_red_standing
 
 data class GameState(
     val navigateTo: NavigationEvent? = null,
@@ -30,6 +30,7 @@ data class GameState(
     val arenaCentre: Offset? = null,
     val arenaRadius: Float? = null,
     val rikishiRadius: Float? = null,
+    val newRikishiTawaraInsetPx: Float? = null,
     /** Whether either player may claim the shared push power move. */
     val isPushPowerMoveEnabled: Boolean = false,
     /** Whether either player may claim the shared pull power move. */
@@ -42,11 +43,11 @@ data class GameState(
 data class UI(
     val topThumbView: ThumbViewState = ThumbViewState(
         foregroundColor = null,
-        foregroundImage = Res.drawable.rikishi_blue_crouch,
+        foregroundImage = Res.drawable.rikishi_blue_standing,
     ),
     val bottomThumbView: ThumbViewState = ThumbViewState(
         foregroundColor = null,
-        foregroundImage = Res.drawable.rikishi_red_crouch,
+        foregroundImage = Res.drawable.rikishi_red_standing,
     ),
     val isTopPushing: Boolean = false,
     val isBottomPushing: Boolean = false,
@@ -66,6 +67,7 @@ enum class PlayState {
     NEW,
     STARTING,
     IN_PROGRESS,
+    DAMAGE_RESETTING,
     FINISHED
 }
 
@@ -86,5 +88,8 @@ sealed class GameIntent : Intent {
         val centre: Offset,
         val arenaRadius: Float,
         val rikishiRadius: Float,
+        val newRikishiTawaraInsetPx: Float,
     ) : GameIntent()
 }
+
+internal const val SHIKIRI_SEN_CENTER_OFFSET_RATIO = 0.16f

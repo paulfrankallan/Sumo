@@ -23,7 +23,11 @@ class ApplyDamage {
                         health = newHealth
                     ),
                     gameOverResult = gameOverResult,
-                    playState = if(gameOverResult == null) PlayState.IN_PROGRESS else PlayState.FINISHED,
+                    playState = if (gameOverResult == null) {
+                        PlayState.DAMAGE_RESETTING
+                    } else {
+                        PlayState.FINISHED
+                    },
                     events = if (gameOverResult == null) {
                         gameState.events
                     } else {
@@ -42,7 +46,11 @@ class ApplyDamage {
                         health = newHealth
                     ),
                     gameOverResult = gameOverResult,
-                    playState = if(gameOverResult == null) PlayState.IN_PROGRESS else PlayState.FINISHED,
+                    playState = if (gameOverResult == null) {
+                        PlayState.DAMAGE_RESETTING
+                    } else {
+                        PlayState.FINISHED
+                    },
                     events = if (gameOverResult == null) {
                         gameState.events
                     } else {

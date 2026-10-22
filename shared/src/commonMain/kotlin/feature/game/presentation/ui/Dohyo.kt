@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import app.LocalScreen
 import feature.common.presentation.Intent
 import feature.game.domain.input.InputCommand
@@ -22,6 +23,7 @@ import feature.game.domain.input.InputSource
 import feature.game.joystick.ui.state.JoystickState
 import feature.game.presentation.GameIntent
 import feature.game.presentation.GameState
+import feature.game.presentation.SHIKIRI_SEN_CENTER_OFFSET_RATIO
 import feature.game.presentation.model.Player
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
@@ -94,6 +96,9 @@ fun Dohyo(
                         centre = circleCenter.value,
                         arenaRadius = circleRadius.value,
                         rikishiRadius = spotRadiusPx,
+                        newRikishiTawaraInsetPx = with(density) {
+                            NEW_RIKISHI_TAWARA_INSET.toPx()
+                        },
                     )
                 )
             }
@@ -123,7 +128,8 @@ fun Dohyo(
 
             val shikiriSenWidth = circleRadius.value * 2f * SHIKIRI_SEN_WIDTH_RATIO
             val shikiriSenHeight = shikiriSenWidth / SHIKIRI_SEN_ASPECT_RATIO
-            val shikiriSenSeparation = circleRadius.value * 2f * SHIKIRI_SEN_SEPARATION_RATIO
+            val shikiriSenSeparation =
+                circleRadius.value * 2f * SHIKIRI_SEN_CENTER_OFFSET_RATIO
             val shikiriSenSize = Size(shikiriSenWidth, shikiriSenHeight)
             val topShikiriTopLeft = Offset(
                 x = circleCenter.value.x - (shikiriSenWidth / 2f),
@@ -239,6 +245,6 @@ fun Dohyo(
 
 private const val SHIKIRI_SEN_ASPECT_RATIO = 749f / 65f
 private const val SHIKIRI_SEN_WIDTH_RATIO = 0.2f
-private const val SHIKIRI_SEN_SEPARATION_RATIO = 0.16f
 private const val JOYSTICK_MOVEMENT_SPEED_PX = 6f
 private const val JOYSTICK_TICK_MS = 16L
+private val NEW_RIKISHI_TAWARA_INSET = 24.dp

@@ -26,7 +26,9 @@ import app.theme.appRed
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
+import sumo.shared.generated.resources.rikishi_blue_fall
 import sumo.shared.generated.resources.rikishi_blue_standing
+import sumo.shared.generated.resources.rikishi_red_fall
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
@@ -62,6 +64,22 @@ fun Rikishi(
         painterResource(resource = spotBackgroundImage)
     }
     val imageSize = Size(spotDiameterPx, spotDiameterPx)
+    val foregroundScale = if (
+        spotForegroundImage == Res.drawable.rikishi_blue_fall ||
+        spotForegroundImage == Res.drawable.rikishi_red_fall
+    ) {
+        FALL_IMAGE_SCALE
+    } else {
+        1f
+    }
+    val foregroundImageSize = Size(
+        width = imageSize.width * foregroundScale,
+        height = imageSize.height * foregroundScale,
+    )
+    val foregroundImageInset = Offset(
+        x = (imageSize.width - foregroundImageSize.width) / 2f,
+        y = (imageSize.height - foregroundImageSize.height) / 2f,
+    )
     val foregroundImageOffset = if (isPushing) {
         pushImageOffset(rotationDegrees, spotDiameterPx)
     } else {
@@ -155,10 +173,13 @@ fun Rikishi(
         with(painterForeground) {
             drawIntoCanvas { canvas ->
                 canvas.withSave {
-                    canvas.translate(foregroundImageOffset.x, foregroundImageOffset.y)
+                    canvas.translate(
+                        foregroundImageOffset.x + foregroundImageInset.x,
+                        foregroundImageOffset.y + foregroundImageInset.y,
+                    )
                     canvas.rotate(rotationDegrees, center.x, center.y)
                     draw(
-                        size = imageSize,
+                        size = foregroundImageSize,
                         colorFilter = spotForegroundColor?.let {
                             ColorFilter.tint(
                                 color = if (isOutOfBounds) {
@@ -202,3 +223,4 @@ private fun pushImageOffset(
 
 // Counteracts transparent padding at the pushing hands without changing collision physics.
 private const val PUSH_IMAGE_FORWARD_OFFSET_RATIO = 0.015f
+private const val FALL_IMAGE_SCALE = 1.2f

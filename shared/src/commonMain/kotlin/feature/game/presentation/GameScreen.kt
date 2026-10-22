@@ -151,7 +151,7 @@ fun GameScreenContent(
                     )
                 },
                 onMoveStart = { snapshot ->
-                    if (state.playState != PlayState.IN_PROGRESS || state.isGameOver) {
+                    if (state.playState == PlayState.NEW || state.playState == PlayState.FINISHED) {
                         onIntent(GameIntent.StartGame)
                     }
                     joystickTapDirection(
@@ -235,7 +235,7 @@ fun GameScreenContent(
                     )
                 },
                 onMoveStart = { snapshot ->
-                    if (state.playState != PlayState.IN_PROGRESS || state.isGameOver) {
+                    if (state.playState == PlayState.NEW || state.playState == PlayState.FINISHED) {
                         onIntent(GameIntent.StartGame)
                     }
                     joystickTapDirection(

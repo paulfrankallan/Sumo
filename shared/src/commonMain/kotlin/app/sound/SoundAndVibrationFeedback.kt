@@ -9,7 +9,10 @@ import platform.RES_ID_DIE_4
 import platform.RES_ID_DIE_5
 import platform.RES_ID_HAKKEYOI
 import platform.RES_ID_JIKAN_DESU
+import platform.RES_ID_MATTA_NASHI
+import platform.RES_ID_NOKOTTA
 import platform.RES_ID_SHOBUARI_GAME_OVER
+import platform.RES_ID_TE_O_TSUITE
 import platform.SoundAndVibrate
 
 @OptIn(ExperimentalSettingsApi::class)
@@ -40,6 +43,17 @@ class SoundAndVibrationFeedback(
         }
     }
 
+    fun nokottaFeedback() {
+        if (preferences.isSoundEnabled()) {
+            soundAndVibrate.playSound(RES_ID_NOKOTTA)
+        }
+    }
+
+    fun mattaNashiFeedback() {
+        if (preferences.isSoundEnabled()) {
+            soundAndVibrate.playSound(RES_ID_MATTA_NASHI)
+        }
+    }
 
     fun startMusic(musicResourceId: String, speed: Float = 1f) {
         if (preferences.isMusicEnabled()) {
@@ -60,7 +74,10 @@ class SoundAndVibrationFeedback(
     fun stopGameFeedback() {
         soundAndVibrate.stopSound(RES_ID_HAKKEYOI)
         soundAndVibrate.stopSound(RES_ID_JIKAN_DESU)
+        soundAndVibrate.stopSound(RES_ID_MATTA_NASHI)
+        soundAndVibrate.stopSound(RES_ID_NOKOTTA)
         soundAndVibrate.stopSound(RES_ID_SHOBUARI_GAME_OVER)
+        soundAndVibrate.stopSound(RES_ID_TE_O_TSUITE)
         listOf(
             RES_ID_DIE_1,
             RES_ID_DIE_2,
@@ -74,6 +91,12 @@ class SoundAndVibrationFeedback(
     fun jikanDesuFeedback() {
         if (preferences.isSoundEnabled()) {
             soundAndVibrate.playSound(RES_ID_JIKAN_DESU)
+        }
+    }
+
+    fun teOTsuiteFeedback() {
+        if (preferences.isSoundEnabled()) {
+            soundAndVibrate.playSound(RES_ID_TE_O_TSUITE)
         }
     }
 

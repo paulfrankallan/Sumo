@@ -35,13 +35,18 @@ import platform.RES_ID_MUSIC_3
 import platform.randomUUID
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.loser
+import sumo.shared.generated.resources.rikishi_blue_crouch
+import sumo.shared.generated.resources.rikishi_blue_fall
 import sumo.shared.generated.resources.rikishi_blue_push
 import sumo.shared.generated.resources.rikishi_blue_standing
+import sumo.shared.generated.resources.rikishi_red_crouch
+import sumo.shared.generated.resources.rikishi_red_fall
 import sumo.shared.generated.resources.rikishi_red_push
 import sumo.shared.generated.resources.rikishi_red_standing
 import sumo.shared.generated.resources.winner
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 class GameViewModel(
     private val applyDamage: ApplyDamage,
@@ -50,6 +55,8 @@ class GameViewModel(
     val gameLoop: GameLoop = GameLoop(),
 ) : CMViewModel<GameState, Intent>() {
     private var startCeremonyJob: Job? = null
+    private var damageResetJob: Job? = null
+    private var mattaNashiJob: Job? = null
     private val powerMoveTimerJobs = mutableMapOf<PowerMove, Job>()
     private val gameSession = MutableStateFlow(0)
     // Per-player flags prevent double damage to the same player in one reset cycle
@@ -78,11 +85,31 @@ class GameViewModel(
         _resetThumbPositions.value = !_resetThumbPositions.value
     }
 
-    private fun currentInitialWorld(state: GameState): GameWorld? {
+    private fun newStateWorld(state: GameState): GameWorld? {
         val centre = state.arenaCentre ?: return null
         val arenaRadius = state.arenaRadius ?: return null
         val rikishiRadius = state.rikishiRadius ?: return null
-        val offset = Offset(0f, arenaRadius * 0.55f)
+        val tawaraInset = state.newRikishiTawaraInsetPx
+            ?: return null
+        val offset = Offset(
+            x = 0f,
+            y = (arenaRadius - rikishiRadius - tawaraInset).coerceAtLeast(0f),
+        )
+        return GameWorld(
+            arena = ArenaWorld(centre, arenaRadius),
+            topRikishi = RikishiBody(state.topPlayer.id, centre - offset, rikishiRadius),
+            bottomRikishi = RikishiBody(state.bottomPlayer.id, centre + offset, rikishiRadius),
+        )
+    }
+
+    private fun shikiriSenWorld(state: GameState): GameWorld? {
+        val centre = state.arenaCentre ?: return null
+        val arenaRadius = state.arenaRadius ?: return null
+        val rikishiRadius = state.rikishiRadius ?: return null
+        val offset = Offset(
+            x = 0f,
+            y = arenaRadius * SHIKIRI_SEN_CENTER_OFFSET_RATIO + rikishiRadius,
+        )
         return GameWorld(
             arena = ArenaWorld(centre, arenaRadius),
             topRikishi = RikishiBody(state.topPlayer.id, centre - offset, rikishiRadius),
@@ -92,6 +119,12 @@ class GameViewModel(
 
     private fun isGameInProgress(): Boolean =
         state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver
+
+    private fun canApplyDamage(): Boolean =
+        !state.value.isGameOver && (
+            state.value.playState == PlayState.IN_PROGRESS ||
+                state.value.playState == PlayState.DAMAGE_RESETTING
+            )
 
     fun submitInput(command: InputCommand) {
         if (isGameInProgress()) {
@@ -118,6 +151,10 @@ class GameViewModel(
         gameSession.update { it + 1 }
         startCeremonyJob?.cancel()
         startCeremonyJob = null
+        damageResetJob?.cancel()
+        damageResetJob = null
+        mattaNashiJob?.cancel()
+        mattaNashiJob = null
         disableAllPowerMoves()
         gyojiController.reset()
         gameLoop.stop()
@@ -165,6 +202,97 @@ class GameViewModel(
         scheduleNextPowerMove(powerMove)
     }
 
+    private fun handlePlayerDamage(player: Player) {
+        if (!canApplyDamage()) return
+
+        val isTop = player.position == Position.TOP
+        val alreadyResetting = if (isTop) isTopResettingAfterDamage.value
+                               else isBottomResettingAfterDamage.value
+        if (alreadyResetting) return
+
+        if (isTop) isTopResettingAfterDamage.value = true
+        else isBottomResettingAfterDamage.value = true
+        _state.update { state -> applyDamage(state, player) }
+        hasVibratedSinceDamage = false
+
+        if (state.value.isGameOver) {
+            stopGameActivity()
+            return
+        }
+
+        _state.update { state ->
+            state.copy(ui = state.ui.withDamagedRikishi(player.position))
+        }
+        prevTouching = false
+        disableAllPowerMoves()
+        gyojiController.reset()
+        gameLoop.stop()
+        scheduleDamageReset()
+        launchDamageResetAudio {
+            soundAndVibration.gameOverFeedback()
+        }
+    }
+
+    private fun scheduleDamageReset() {
+        if (damageResetJob?.isActive == true) return
+
+        val session = gameSession.value
+        damageResetJob = scope.launch {
+            delay(DAMAGE_RESET_DURATION_MILLIS.milliseconds)
+            damageResetJob = null
+            if (
+                session != gameSession.value ||
+                state.value.playState != PlayState.DAMAGE_RESETTING ||
+                state.value.isGameOver
+            ) {
+                return@launch
+            }
+            resumeAfterDamageReset()
+        }
+    }
+
+    private fun resumeAfterDamageReset() {
+        val currentState = state.value
+        val initialWorld = shikiriSenWorld(currentState) ?: return
+        val blockTopDrag =
+            isTopResettingAfterDamage.value &&
+                currentState.topPlayer.thumbState == ThumbState.PRESSED
+        val blockBottomDrag =
+            isBottomResettingAfterDamage.value &&
+                currentState.bottomPlayer.thumbState == ThumbState.PRESSED
+
+        gameLoop.start(initialWorld, scope)
+        if (blockTopDrag) gameLoop.blockDragForPlayer(currentState.topPlayer.id)
+        if (blockBottomDrag) gameLoop.blockDragForPlayer(currentState.bottomPlayer.id)
+        _state.update { state ->
+            state.copy(
+                playState = PlayState.IN_PROGRESS,
+                ui = state.ui.withRikishiImages(
+                    topIsPushing = false,
+                    bottomIsPushing = false,
+                ),
+            )
+        }
+        triggerResetThumbPositions()
+        PowerMove.entries.forEach(::resetPowerMoveTimer)
+        launchGameAudio {
+            soundAndVibration.nokottaFeedback()
+        }
+    }
+
+    private fun launchDamageResetAudio(playAudio: () -> Unit) {
+        val session = gameSession.value
+        scope.launch(Dispatchers.Default) {
+            if (
+                session == gameSession.value &&
+                state.value.playState == PlayState.DAMAGE_RESETTING &&
+                !state.value.isGameOver
+            ) {
+                playAudio()
+            }
+        }
+    }
+
     private fun deactivateGame(playFinalGameOverSound: Boolean = false) {
         stopGameActivity()
         _state.update { state ->
@@ -183,6 +311,26 @@ class GameViewModel(
         scope.launch(Dispatchers.Default) {
             if (session == gameSession.value && state.value.isGameOver) {
                 soundAndVibration.finalGameOverFeedback()
+            }
+        }
+    }
+
+    private fun startMattaNashiFeedback() {
+        val session = gameSession.value
+        mattaNashiJob?.cancel()
+        mattaNashiJob = scope.launch {
+            while (
+                session == gameSession.value &&
+                state.value.playState == PlayState.NEW
+            ) {
+                delay(randomMattaNashiDelayMillis().milliseconds)
+                if (
+                    session != gameSession.value ||
+                    state.value.playState != PlayState.NEW
+                ) {
+                    break
+                }
+                soundAndVibration.mattaNashiFeedback()
             }
         }
     }
@@ -277,38 +425,14 @@ class GameViewModel(
                 when (event) {
                     is PhysicsEvent.BoundaryViolation -> {
                         val currentState = state.value
-                        if (!isGameInProgress()) return@collect
+                        if (!canApplyDamage()) return@collect
                         val player = when (event.playerId) {
                             currentState.topPlayer.id -> currentState.topPlayer
                             currentState.bottomPlayer.id -> currentState.bottomPlayer
                             else -> null
                         } ?: return@collect
 
-                        val isTop = player.position == Position.TOP
-                        val alreadyResetting = if (isTop) isTopResettingAfterDamage.value
-                                               else isBottomResettingAfterDamage.value
-                        if (!alreadyResetting) {
-                            if (isTop) isTopResettingAfterDamage.value = true
-                            else isBottomResettingAfterDamage.value = true
-                            _state.update { s -> applyDamage(s, player) }
-                            // Reset clash vibration allowance — next clash should vibrate.
-                            hasVibratedSinceDamage = false
-                            if (state.value.isGameOver) {
-                                stopGameActivity()
-                            } else {
-                                currentInitialWorld(currentState)?.let { gameLoop.reset(it) }
-                                // If the player was actively dragging when they hit the boundary,
-                                // block their drag input until the gesture ends — prevents the
-                                // in-flight drag from immediately pushing the Rikishi back out.
-                                if (player.thumbState == ThumbState.PRESSED) {
-                                    gameLoop.blockDragForPlayer(player.id)
-                                }
-                                triggerResetThumbPositions()
-                                launchGameAudio {
-                                    soundAndVibration.gameOverFeedback()
-                                }
-                            }
-                        }
+                        handlePlayerDamage(player)
                     }
                     is PhysicsEvent.RikishiCollision -> {
                         if (isGameInProgress()) {
@@ -324,6 +448,8 @@ class GameViewModel(
                 }
             }
         }
+
+        startMattaNashiFeedback()
     }
 
     override fun initialViewState(): GameState {
@@ -339,6 +465,7 @@ class GameViewModel(
             GameIntent.StartGame -> {
                 if (
                     state.value.playState == PlayState.STARTING ||
+                    state.value.playState == PlayState.DAMAGE_RESETTING ||
                     (state.value.playState == PlayState.IN_PROGRESS && !state.value.isGameOver)
                 ) {
                     return
@@ -356,27 +483,11 @@ class GameViewModel(
                         topPlayer = Player(id = newTopId, position = Position.TOP),
                         bottomPlayer = Player(id = newBottomId, position = Position.BOTTOM),
                         playState = PlayState.STARTING,
-                        isStartCeremonyVisible = true,
+                        isStartCeremonyVisible = false,
                         ui = UI(),
                     )
                 }
-                // Reset game loop world if arena has been measured.
-                state.value.let { s ->
-                    val centre = s.arenaCentre
-                    val arenaRadius = s.arenaRadius
-                    val rikishiRadius = s.rikishiRadius
-                    if (centre != null && arenaRadius != null && rikishiRadius != null) {
-                        val offset = Offset(0f, arenaRadius * 0.55f)
-                        gameLoop.start(
-                            GameWorld(
-                                arena = ArenaWorld(centre, arenaRadius),
-                                topRikishi = RikishiBody(newTopId, centre - offset, rikishiRadius),
-                                bottomRikishi = RikishiBody(newBottomId, centre + offset, rikishiRadius),
-                            ),
-                            scope,
-                        )
-                    }
-                }
+                newStateWorld(state.value)?.let { gameLoop.start(it, scope) }
                 triggerResetThumbPositions()
                 startGameCeremony()
             }
@@ -404,34 +515,7 @@ class GameViewModel(
             }
 
             is GameIntent.PlayerDamaged -> {
-                val isTop = intent.player.position == Position.TOP
-                val alreadyResetting = if (isTop) isTopResettingAfterDamage.value
-                                       else isBottomResettingAfterDamage.value
-                if (!alreadyResetting) {
-                    if (isTop) isTopResettingAfterDamage.value = true
-                    else isBottomResettingAfterDamage.value = true
-                    _state.update { state -> applyDamage(state, intent.player) }
-                    // Damage happened — allow the next clash to vibrate.
-                    hasVibratedSinceDamage = false
-                    if (state.value.isGameOver) {
-                        stopGameActivity()
-                    } else {
-                        currentInitialWorld(state.value)?.let { gameLoop.reset(it) }
-                        val currentPlayer = if (isTop) state.value.topPlayer else state.value.bottomPlayer
-                        if (currentPlayer.thumbState == ThumbState.PRESSED) {
-                            gameLoop.blockDragForPlayer(intent.player.id)
-                        }
-                        // Only the first player to be damaged this cycle triggers the shared
-                        // reset — both positions always reset together. The second player's
-                        // damage is still applied to their health; they ride the same reset.
-                        val otherAlreadyResetting = if (isTop) isBottomResettingAfterDamage.value
-                                                    else isTopResettingAfterDamage.value
-                        if (!otherAlreadyResetting) triggerResetThumbPositions()
-                        launchGameAudio {
-                            soundAndVibration.gameOverFeedback()
-                        }
-                    }
-                }
+                handlePlayerDamage(intent.player)
             }
 
             is GameIntent.DragEnded -> {
@@ -454,22 +538,15 @@ class GameViewModel(
             }
 
             is GameIntent.ArenaMeasured -> {
-                val currentState = state.value
-                val rikishiStartOffset = Offset(0f, intent.arenaRadius * 0.55f)
-                val initialWorld = GameWorld(
-                    arena = ArenaWorld(centre = intent.centre, radius = intent.arenaRadius),
-                    topRikishi = RikishiBody(
-                        id = currentState.topPlayer.id,
-                        position = intent.centre - rikishiStartOffset,
-                        radius = intent.rikishiRadius,
-                    ),
-                    bottomRikishi = RikishiBody(
-                        id = currentState.bottomPlayer.id,
-                        position = intent.centre + rikishiStartOffset,
-                        radius = intent.rikishiRadius,
-                    ),
-                )
-                gameLoop.start(initialWorld, scope)
+                _state.update { state ->
+                    state.copy(
+                        arenaCentre = intent.centre,
+                        arenaRadius = intent.arenaRadius,
+                        rikishiRadius = intent.rikishiRadius,
+                        newRikishiTawaraInsetPx = intent.newRikishiTawaraInsetPx,
+                    )
+                }
+                newStateWorld(state.value)?.let { gameLoop.start(it, scope) }
             }
         }
     }
@@ -520,17 +597,44 @@ class GameViewModel(
         super.onCleared()
     }
 
+    private fun isStartCeremonyActive(session: Int): Boolean =
+        session == gameSession.value && state.value.playState == PlayState.STARTING
+
+    private suspend fun moveRikishiToShikiriSen(session: Int): Boolean {
+        val startWorld = gameLoop.worldState.value ?: return false
+        val targetWorld = shikiriSenWorld(state.value) ?: return false
+        val startTime = TimeSource.Monotonic.markNow()
+
+        while (isStartCeremonyActive(session)) {
+            val progress = (
+                startTime.elapsedNow().inWholeMilliseconds.toFloat() /
+                    RIKISHI_WALK_DURATION_MILLIS
+                ).coerceIn(0f, 1f)
+            gameLoop.reset(startWorld.interpolateTowards(targetWorld, progress))
+            if (progress >= 1f) return true
+            delay(CEREMONY_MOVEMENT_FRAME_MILLIS.milliseconds)
+        }
+        return false
+    }
+
     private fun startGameCeremony() {
         val session = gameSession.value
         startCeremonyJob = scope.launch {
-            delay(START_CEREMONY_DURATION_MILLIS.milliseconds)
-            if (
-                session != gameSession.value ||
-                state.value.playState != PlayState.STARTING
-            ) {
-                return@launch
-            }
             soundAndVibration.jikanDesuFeedback()
+            if (!moveRikishiToShikiriSen(session)) return@launch
+            delay(SHIKIRI_SEN_PAUSE_DURATION_MILLIS.milliseconds)
+            if (!isStartCeremonyActive(session)) return@launch
+            soundAndVibration.teOTsuiteFeedback()
+            delay(CROUCH_DELAY_AFTER_TE_O_TSUITE_MILLIS.milliseconds)
+            if (!isStartCeremonyActive(session)) return@launch
+            _state.update { state ->
+                state.copy(
+                    isStartCeremonyVisible = true,
+                    ui = state.ui.withRikishiCrouching(),
+                )
+            }
+            delay(GUNBAI_DURATION_MILLIS.milliseconds)
+            if (!isStartCeremonyActive(session)) return@launch
             _state.update { state ->
                 state.copy(
                     isStartCeremonyVisible = false,
@@ -564,12 +668,25 @@ private fun GameState.withPowerMoveEnabled(
 
 internal const val POWER_MOVE_MIN_DELAY_MILLIS = 8_888L
 internal const val POWER_MOVE_MAX_DELAY_MILLIS = 30_000L
-private const val START_CEREMONY_DURATION_MILLIS = 3_000L
+private const val RIKISHI_WALK_DURATION_MILLIS = 1_000L
+private const val SHIKIRI_SEN_PAUSE_DURATION_MILLIS = 500L
+private const val CROUCH_DELAY_AFTER_TE_O_TSUITE_MILLIS = 300L
+private const val GUNBAI_DURATION_MILLIS = 3_000L
+private const val CEREMONY_MOVEMENT_FRAME_MILLIS = 16L
+private const val DAMAGE_RESET_DURATION_MILLIS = 3_000L
+private const val MATTA_NASHI_MIN_DELAY_MILLIS = 5_000L
+private const val MATTA_NASHI_MAX_DELAY_MILLIS = 15_000L
 
 internal fun randomPowerMoveDelayMillis(random: Random = Random.Default): Long =
     random.nextLong(
         from = POWER_MOVE_MIN_DELAY_MILLIS,
         until = POWER_MOVE_MAX_DELAY_MILLIS + 1,
+    )
+
+private fun randomMattaNashiDelayMillis(): Long =
+    Random.nextLong(
+        from = MATTA_NASHI_MIN_DELAY_MILLIS,
+        until = MATTA_NASHI_MAX_DELAY_MILLIS + 1,
     )
 
 private fun GameState.withPowerMoveAppearance(
@@ -611,3 +728,54 @@ private fun UI.withRikishiImages(
     isTopPushing = topIsPushing,
     isBottomPushing = bottomIsPushing,
 )
+
+private fun UI.withRikishiCrouching(): UI = copy(
+    topThumbView = topThumbView.copy(
+        foregroundImage = Res.drawable.rikishi_blue_crouch,
+    ),
+    bottomThumbView = bottomThumbView.copy(
+        foregroundImage = Res.drawable.rikishi_red_crouch,
+    ),
+    isTopPushing = false,
+    isBottomPushing = false,
+)
+
+private fun GameWorld.interpolateTowards(target: GameWorld, progress: Float): GameWorld = copy(
+    topRikishi = topRikishi.copy(
+        position = topRikishi.position.interpolateTowards(
+            target = target.topRikishi.position,
+            progress = progress,
+        ),
+    ),
+    bottomRikishi = bottomRikishi.copy(
+        position = bottomRikishi.position.interpolateTowards(
+            target = target.bottomRikishi.position,
+            progress = progress,
+        ),
+    ),
+)
+
+private fun Offset.interpolateTowards(target: Offset, progress: Float): Offset = Offset(
+    x = x + (target.x - x) * progress,
+    y = y + (target.y - y) * progress,
+)
+
+private fun UI.withDamagedRikishi(position: Position?): UI = when (position) {
+    Position.TOP -> copy(
+        topThumbView = topThumbView.copy(
+            foregroundColor = null,
+            foregroundImage = Res.drawable.rikishi_blue_fall,
+        ),
+        isTopPushing = false,
+    )
+
+    Position.BOTTOM -> copy(
+        bottomThumbView = bottomThumbView.copy(
+            foregroundColor = null,
+            foregroundImage = Res.drawable.rikishi_red_fall,
+        ),
+        isBottomPushing = false,
+    )
+
+    null -> this
+}
