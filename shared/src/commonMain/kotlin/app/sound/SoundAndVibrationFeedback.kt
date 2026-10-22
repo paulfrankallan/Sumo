@@ -8,6 +8,7 @@ import platform.RES_ID_DIE_3
 import platform.RES_ID_DIE_4
 import platform.RES_ID_DIE_5
 import platform.RES_ID_HAKKEYOI
+import platform.RES_ID_HYOSHIGI
 import platform.RES_ID_JIKAN_DESU
 import platform.RES_ID_MATTA_NASHI
 import platform.RES_ID_NOKOTTA
@@ -55,6 +56,12 @@ class SoundAndVibrationFeedback(
         }
     }
 
+    fun hyoshigiFeedback() {
+        if (preferences.isSoundEnabled()) {
+            soundAndVibrate.playSound(RES_ID_HYOSHIGI)
+        }
+    }
+
     fun startMusic(musicResourceId: String, speed: Float = 1f) {
         if (preferences.isMusicEnabled()) {
             soundAndVibrate.loopSound(musicResourceId, speed)
@@ -73,6 +80,7 @@ class SoundAndVibrationFeedback(
 
     fun stopGameFeedback() {
         soundAndVibrate.stopSound(RES_ID_HAKKEYOI)
+        soundAndVibrate.stopSound(RES_ID_HYOSHIGI)
         soundAndVibrate.stopSound(RES_ID_JIKAN_DESU)
         soundAndVibrate.stopSound(RES_ID_MATTA_NASHI)
         soundAndVibrate.stopSound(RES_ID_NOKOTTA)

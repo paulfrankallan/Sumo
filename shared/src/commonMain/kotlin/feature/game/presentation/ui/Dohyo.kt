@@ -169,6 +169,7 @@ fun Dohyo(
             spotDiameter = spotDiameter,
             rotationDegrees = rotationDegrees,
             isPushing = state.ui.isTopPushing,
+            isWalking = state.ui.isTopWalking,
             isFullContact = isFullContact,
         )
 
@@ -192,6 +193,7 @@ fun Dohyo(
             spotDiameter = spotDiameter,
             rotationDegrees = rotationDegrees + 180f,
             isPushing = state.ui.isBottomPushing,
+            isWalking = state.ui.isBottomWalking,
             isFullContact = isFullContact,
         )
 

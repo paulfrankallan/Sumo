@@ -14,6 +14,7 @@ actual class ResourceIdProvider {
             RES_ID_MUSIC_3 -> R.raw.sumo_music_drums
             RES_ID_HOME_LOOP -> R.raw.sumo_music_1
             RES_ID_HAKKEYOI -> R.raw.hakkeyoi
+            RES_ID_HYOSHIGI -> R.raw.hyoshigi
             RES_ID_JIKAN_DESU -> R.raw.jikan_desu
             RES_ID_MATTA_NASHI -> R.raw.matta_nashi
             RES_ID_NOKOTTA -> R.raw.nokotta

@@ -23,6 +23,8 @@ data class GameState(
     val gameOverResult: GameOverResult? = null,
     val playState: PlayState = PlayState.NEW,
     val isStartCeremonyVisible: Boolean = false,
+    val isTopPlayerReady: Boolean = false,
+    val isBottomPlayerReady: Boolean = false,
     val ui: UI = UI(),
     // Render positions from the game loop — null until the arena is measured.
     val topRikishiPosition: Offset? = null,
@@ -51,6 +53,10 @@ data class UI(
     ),
     val isTopPushing: Boolean = false,
     val isBottomPushing: Boolean = false,
+    val isTopCrouching: Boolean = false,
+    val isBottomCrouching: Boolean = false,
+    val isTopWalking: Boolean = false,
+    val isBottomWalking: Boolean = false,
 )
 
 data class ThumbViewState(
@@ -71,8 +77,11 @@ enum class PlayState {
     FINISHED
 }
 
+internal const val READY_BUTTON_TRANSITION_DURATION_MILLIS = 300
+
 sealed class GameIntent : Intent {
     data object StartGame : GameIntent()
+    data class PlayerReady(val playerId: String) : GameIntent()
     data object StopGame : GameIntent()
     data class GameOver(val result: GameOverResult? = null) : GameIntent()
     data class PlayerDamaged(val player: Player) : GameIntent()

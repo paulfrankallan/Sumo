@@ -76,6 +76,7 @@ class GameViewModel(
 
     // Tracks normal collision contact for Rikishi power-move artwork.
     private var prevTouching = false
+    private var previousWalkingWorld: GameWorld? = null
 
     // Single shared position reset — both Rikishi always return to start together.
     private val _resetThumbPositions = mutableStateOf(false)
@@ -83,6 +84,58 @@ class GameViewModel(
 
     private fun triggerResetThumbPositions() {
         _resetThumbPositions.value = !_resetThumbPositions.value
+    }
+
+    private fun clearWalkingAppearance() {
+        previousWalkingWorld = null
+        _state.update { state ->
+            if (!state.ui.isTopWalking && !state.ui.isBottomWalking) {
+                state
+            } else {
+                state.copy(
+                    ui = state.ui.copy(
+                        isTopWalking = false,
+                        isBottomWalking = false,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun updateWalkingAppearance(
+        previousWorld: GameWorld?,
+        world: GameWorld,
+    ) {
+        val topHasMoved = previousWorld?.let {
+            it.topRikishi.id == world.topRikishi.id &&
+                it.topRikishi.position != world.topRikishi.position
+        } == true
+        val bottomHasMoved = previousWorld?.let {
+            it.bottomRikishi.id == world.bottomRikishi.id &&
+                it.bottomRikishi.position != world.bottomRikishi.position
+        } == true
+
+        _state.update { state ->
+            val shouldAnimateWalking = !state.isGameOver && (
+                state.playState == PlayState.STARTING ||
+                    state.playState == PlayState.IN_PROGRESS
+                )
+            val isTopWalking = shouldAnimateWalking && topHasMoved
+            val isBottomWalking = shouldAnimateWalking && bottomHasMoved
+            if (
+                state.ui.isTopWalking == isTopWalking &&
+                state.ui.isBottomWalking == isBottomWalking
+            ) {
+                state
+            } else {
+                state.copy(
+                    ui = state.ui.copy(
+                        isTopWalking = isTopWalking,
+                        isBottomWalking = isBottomWalking,
+                    ),
+                )
+            }
+        }
     }
 
     private fun newStateWorld(state: GameState): GameWorld? {
@@ -128,14 +181,24 @@ class GameViewModel(
 
     fun submitInput(command: InputCommand) {
         if (isGameInProgress()) {
+            if (command.velocityVector != Offset.Zero) {
+                showStandingPose(command.playerId)
+            }
             gameLoop.submitInput(command)
         }
     }
 
     fun submitRapidTap(playerId: String, direction: Offset) {
         if (isGameInProgress()) {
+            if (direction != Offset.Zero) {
+                showStandingPose(playerId)
+            }
             gameLoop.submitRapidTap(playerId, direction)
         }
+    }
+
+    fun playHyoshigiFeedback() {
+        soundAndVibration.hyoshigiFeedback()
     }
 
     private fun launchGameAudio(playAudio: () -> Unit) {
@@ -158,6 +221,7 @@ class GameViewModel(
         disableAllPowerMoves()
         gyojiController.reset()
         gameLoop.stop()
+        clearWalkingAppearance()
         soundAndVibration.stopMusic(musicResourceId = RES_ID_MUSIC_3)
         soundAndVibration.stopGameFeedback()
     }
@@ -197,9 +261,80 @@ class GameViewModel(
         ) {
             return
         }
+        showStandingPose(playerId)
         disablePowerMove(powerMove)
         gameLoop.submitPowerMove(playerId, powerMove)
         scheduleNextPowerMove(powerMove)
+    }
+
+    private fun markPlayerReady(playerId: String) {
+        var shouldStartGame = false
+        _state.update { state ->
+            if (state.playState != PlayState.NEW && state.playState != PlayState.FINISHED) {
+                return@update state
+            }
+
+            val updatedState = when (playerId) {
+                state.topPlayer.id -> {
+                    if (state.isTopPlayerReady) {
+                        state
+                    } else {
+                        state.copy(isTopPlayerReady = true)
+                    }
+                }
+
+                state.bottomPlayer.id -> {
+                    if (state.isBottomPlayerReady) {
+                        state
+                    } else {
+                        state.copy(isBottomPlayerReady = true)
+                    }
+                }
+
+                else -> state
+            }
+            shouldStartGame = updatedState != state && updatedState.arePlayersReady
+            updatedState
+        }
+        if (!shouldStartGame) return
+
+        scope.launch {
+            delay(READY_BUTTON_TRANSITION_DURATION_MILLIS.milliseconds)
+            val currentState = state.value
+            if (
+                currentState.arePlayersReady &&
+                (
+                    currentState.playState == PlayState.NEW ||
+                        currentState.playState == PlayState.FINISHED
+                    )
+            ) {
+                onIntent(GameIntent.StartGame)
+            }
+        }
+    }
+
+    private fun showStandingPose(playerId: String) {
+        _state.update { state ->
+            when (playerId) {
+                state.topPlayer.id -> if (state.ui.isTopCrouching) {
+                    state.copy(
+                        ui = state.ui.withRikishiStanding(Position.TOP),
+                    )
+                } else {
+                    state
+                }
+
+                state.bottomPlayer.id -> if (state.ui.isBottomCrouching) {
+                    state.copy(
+                        ui = state.ui.withRikishiStanding(Position.BOTTOM),
+                    )
+                } else {
+                    state
+                }
+
+                else -> state
+            }
+        }
     }
 
     private fun handlePlayerDamage(player: Player) {
@@ -220,6 +355,7 @@ class GameViewModel(
             return
         }
 
+        clearWalkingAppearance()
         _state.update { state ->
             state.copy(ui = state.ui.withDamagedRikishi(player.position))
         }
@@ -261,16 +397,14 @@ class GameViewModel(
             isBottomResettingAfterDamage.value &&
                 currentState.bottomPlayer.thumbState == ThumbState.PRESSED
 
+        clearWalkingAppearance()
         gameLoop.start(initialWorld, scope)
         if (blockTopDrag) gameLoop.blockDragForPlayer(currentState.topPlayer.id)
         if (blockBottomDrag) gameLoop.blockDragForPlayer(currentState.bottomPlayer.id)
         _state.update { state ->
             state.copy(
                 playState = PlayState.IN_PROGRESS,
-                ui = state.ui.withRikishiImages(
-                    topIsPushing = false,
-                    bottomIsPushing = false,
-                ),
+                ui = state.ui.withStandingRikishiImages(),
             )
         }
         triggerResetThumbPositions()
@@ -299,6 +433,8 @@ class GameViewModel(
             state.copy(
                 playState = PlayState.FINISHED,
                 isStartCeremonyVisible = false,
+                isTopPlayerReady = false,
+                isBottomPlayerReady = false,
             )
         }
         if (playFinalGameOverSound) {
@@ -311,6 +447,13 @@ class GameViewModel(
         scope.launch(Dispatchers.Default) {
             if (session == gameSession.value && state.value.isGameOver) {
                 soundAndVibration.finalGameOverFeedback()
+            }
+            delay(HYOSHIGI_AFTER_GAME_OVER_DELAY_MILLIS.milliseconds)
+            if (
+                session == gameSession.value &&
+                state.value.playState == PlayState.FINISHED
+            ) {
+                soundAndVibration.hyoshigiFeedback()
             }
         }
     }
@@ -411,6 +554,8 @@ class GameViewModel(
         // per-frame stream to keep the Hakkeyoi timer advancing during a stall.
         scope.launch {
             gameLoop.worldFrames.collect { world ->
+                updateWalkingAppearance(previousWalkingWorld, world)
+                previousWalkingWorld = world
                 gyojiController.update(
                     topPosition = world.topRikishi.position,
                     bottomPosition = world.bottomRikishi.position,
@@ -463,6 +608,9 @@ class GameViewModel(
     override fun onIntent(intent: Intent) {
         when (intent) {
             GameIntent.StartGame -> {
+                if (!state.value.arePlayersReady) {
+                    return
+                }
                 if (
                     state.value.playState == PlayState.STARTING ||
                     state.value.playState == PlayState.DAMAGE_RESETTING ||
@@ -490,6 +638,10 @@ class GameViewModel(
                 newStateWorld(state.value)?.let { gameLoop.start(it, scope) }
                 triggerResetThumbPositions()
                 startGameCeremony()
+            }
+
+            is GameIntent.PlayerReady -> {
+                markPlayerReady(intent.playerId)
             }
 
             is GameIntent.GameOver -> {
@@ -621,6 +773,14 @@ class GameViewModel(
         val session = gameSession.value
         startCeremonyJob = scope.launch {
             soundAndVibration.jikanDesuFeedback()
+            _state.update { state ->
+                state.copy(isStartCeremonyVisible = true)
+            }
+            delay(GUNBAI_DURATION_MILLIS.milliseconds)
+            if (!isStartCeremonyActive(session)) return@launch
+            _state.update { state ->
+                state.copy(isStartCeremonyVisible = false)
+            }
             if (!moveRikishiToShikiriSen(session)) return@launch
             delay(SHIKIRI_SEN_PAUSE_DURATION_MILLIS.milliseconds)
             if (!isStartCeremonyActive(session)) return@launch
@@ -629,20 +789,12 @@ class GameViewModel(
             if (!isStartCeremonyActive(session)) return@launch
             _state.update { state ->
                 state.copy(
-                    isStartCeremonyVisible = true,
                     ui = state.ui.withRikishiCrouching(),
                 )
             }
-            delay(GUNBAI_DURATION_MILLIS.milliseconds)
-            if (!isStartCeremonyActive(session)) return@launch
             _state.update { state ->
                 state.copy(
-                    isStartCeremonyVisible = false,
                     playState = PlayState.IN_PROGRESS,
-                    ui = state.ui.withRikishiImages(
-                        topIsPushing = false,
-                        bottomIsPushing = false,
-                    ),
                 )
             }
             PowerMove.entries.forEach(::resetPowerMoveTimer)
@@ -658,6 +810,9 @@ private fun GameState.isPowerMoveEnabled(powerMove: PowerMove): Boolean = when (
     PowerMove.PULL -> isPullPowerMoveEnabled
 }
 
+private val GameState.arePlayersReady: Boolean
+    get() = isTopPlayerReady && isBottomPlayerReady
+
 private fun GameState.withPowerMoveEnabled(
     powerMove: PowerMove,
     enabled: Boolean,
@@ -670,8 +825,9 @@ internal const val POWER_MOVE_MIN_DELAY_MILLIS = 8_888L
 internal const val POWER_MOVE_MAX_DELAY_MILLIS = 30_000L
 private const val RIKISHI_WALK_DURATION_MILLIS = 1_000L
 private const val SHIKIRI_SEN_PAUSE_DURATION_MILLIS = 500L
-private const val CROUCH_DELAY_AFTER_TE_O_TSUITE_MILLIS = 300L
+private const val CROUCH_DELAY_AFTER_TE_O_TSUITE_MILLIS = 2_000L
 private const val GUNBAI_DURATION_MILLIS = 3_000L
+private const val HYOSHIGI_AFTER_GAME_OVER_DELAY_MILLIS = 1_000L
 private const val CEREMONY_MOVEMENT_FRAME_MILLIS = 16L
 private const val DAMAGE_RESET_DURATION_MILLIS = 3_000L
 private const val MATTA_NASHI_MIN_DELAY_MILLIS = 5_000L
@@ -712,21 +868,23 @@ private fun UI.withRikishiImages(
     bottomIsPushing: Boolean,
 ): UI = copy(
     topThumbView = topThumbView.copy(
-        foregroundImage = if (topIsPushing) {
-            Res.drawable.rikishi_blue_push
-        } else {
-            Res.drawable.rikishi_blue_standing
+        foregroundImage = when {
+            topIsPushing -> Res.drawable.rikishi_blue_push
+            isTopCrouching -> Res.drawable.rikishi_blue_crouch
+            else -> Res.drawable.rikishi_blue_standing
         },
     ),
     bottomThumbView = bottomThumbView.copy(
-        foregroundImage = if (bottomIsPushing) {
-            Res.drawable.rikishi_red_push
-        } else {
-            Res.drawable.rikishi_red_standing
+        foregroundImage = when {
+            bottomIsPushing -> Res.drawable.rikishi_red_push
+            isBottomCrouching -> Res.drawable.rikishi_red_crouch
+            else -> Res.drawable.rikishi_red_standing
         },
     ),
     isTopPushing = topIsPushing,
     isBottomPushing = bottomIsPushing,
+    isTopCrouching = isTopCrouching && !topIsPushing,
+    isBottomCrouching = isBottomCrouching && !bottomIsPushing,
 )
 
 private fun UI.withRikishiCrouching(): UI = copy(
@@ -738,7 +896,46 @@ private fun UI.withRikishiCrouching(): UI = copy(
     ),
     isTopPushing = false,
     isBottomPushing = false,
+    isTopCrouching = true,
+    isBottomCrouching = true,
+    isTopWalking = false,
+    isBottomWalking = false,
 )
+
+private fun UI.withStandingRikishiImages(): UI = copy(
+    topThumbView = topThumbView.copy(
+        foregroundImage = Res.drawable.rikishi_blue_standing,
+    ),
+    bottomThumbView = bottomThumbView.copy(
+        foregroundImage = Res.drawable.rikishi_red_standing,
+    ),
+    isTopPushing = false,
+    isBottomPushing = false,
+    isTopCrouching = false,
+    isBottomCrouching = false,
+    isTopWalking = false,
+    isBottomWalking = false,
+)
+
+private fun UI.withRikishiStanding(position: Position): UI = when (position) {
+    Position.TOP -> copy(
+        topThumbView = topThumbView.copy(
+            foregroundImage = Res.drawable.rikishi_blue_standing,
+        ),
+        isTopPushing = false,
+        isTopCrouching = false,
+        isTopWalking = false,
+    )
+
+    Position.BOTTOM -> copy(
+        bottomThumbView = bottomThumbView.copy(
+            foregroundImage = Res.drawable.rikishi_red_standing,
+        ),
+        isBottomPushing = false,
+        isBottomCrouching = false,
+        isBottomWalking = false,
+    )
+}
 
 private fun GameWorld.interpolateTowards(target: GameWorld, progress: Float): GameWorld = copy(
     topRikishi = topRikishi.copy(
@@ -767,6 +964,8 @@ private fun UI.withDamagedRikishi(position: Position?): UI = when (position) {
             foregroundImage = Res.drawable.rikishi_blue_fall,
         ),
         isTopPushing = false,
+        isTopCrouching = false,
+        isTopWalking = false,
     )
 
     Position.BOTTOM -> copy(
@@ -775,6 +974,8 @@ private fun UI.withDamagedRikishi(position: Position?): UI = when (position) {
             foregroundImage = Res.drawable.rikishi_red_fall,
         ),
         isBottomPushing = false,
+        isBottomCrouching = false,
+        isBottomWalking = false,
     )
 
     null -> this

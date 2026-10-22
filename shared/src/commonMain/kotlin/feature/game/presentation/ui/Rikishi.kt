@@ -1,11 +1,18 @@
 package feature.game.presentation.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -27,8 +34,13 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.rikishi_blue_fall
+import sumo.shared.generated.resources.rikishi_blue_step_a
+import sumo.shared.generated.resources.rikishi_blue_step_b
 import sumo.shared.generated.resources.rikishi_blue_standing
 import sumo.shared.generated.resources.rikishi_red_fall
+import sumo.shared.generated.resources.rikishi_red_step_a
+import sumo.shared.generated.resources.rikishi_red_step_b
+import sumo.shared.generated.resources.rikishi_red_standing
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
@@ -53,20 +65,37 @@ fun Rikishi(
     onReleased: (Boolean) -> Unit,
     rotationDegrees: Float = 0f,
     isPushing: Boolean = false,
+    isWalking: Boolean = false,
     // When false, disable touch-based control — only joystick input will move Rikishi.
     isFullContact: Boolean = false,
 ) {
     val density = LocalDensity.current
     val spotDiameterPx = with(density) { spotDiameter.toPx() }
     val spotRadiusPx = spotDiameterPx / 2
-    val painterForeground = painterResource(resource = spotForegroundImage)
+    val foregroundImage = when {
+        !isWalking || isPushing -> spotForegroundImage
+        spotForegroundImage == Res.drawable.rikishi_blue_standing -> walkingRikishiImage(
+            firstFrame = Res.drawable.rikishi_blue_step_a,
+            secondFrame = Res.drawable.rikishi_blue_step_b,
+            label = "Blue Rikishi",
+        )
+
+        spotForegroundImage == Res.drawable.rikishi_red_standing -> walkingRikishiImage(
+            firstFrame = Res.drawable.rikishi_red_step_a,
+            secondFrame = Res.drawable.rikishi_red_step_b,
+            label = "Red Rikishi",
+        )
+
+        else -> spotForegroundImage
+    }
+    val painterForeground = painterResource(resource = foregroundImage)
     val painterBackground = spotBackgroundImage?.let {
         painterResource(resource = spotBackgroundImage)
     }
     val imageSize = Size(spotDiameterPx, spotDiameterPx)
     val foregroundScale = if (
-        spotForegroundImage == Res.drawable.rikishi_blue_fall ||
-        spotForegroundImage == Res.drawable.rikishi_red_fall
+        foregroundImage == Res.drawable.rikishi_blue_fall ||
+        foregroundImage == Res.drawable.rikishi_red_fall
     ) {
         FALL_IMAGE_SCALE
     } else {
@@ -196,6 +225,28 @@ fun Rikishi(
     }
 }
 
+@Composable
+private fun walkingRikishiImage(
+    firstFrame: DrawableResource,
+    secondFrame: DrawableResource,
+    label: String,
+): DrawableResource {
+    val transition = rememberInfiniteTransition(label = "$label walk")
+    val frame by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = WALKING_FRAME_CYCLE_MILLIS,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "$label step",
+    )
+    return if (frame < 0.5f) firstFrame else secondFrame
+}
+
 fun isTouchOutsideCircle(
     touchPosition: Offset,
     circleCenter: Offset,
@@ -224,3 +275,4 @@ private fun pushImageOffset(
 // Counteracts transparent padding at the pushing hands without changing collision physics.
 private const val PUSH_IMAGE_FORWARD_OFFSET_RATIO = 0.015f
 private const val FALL_IMAGE_SCALE = 1.2f
+private const val WALKING_FRAME_CYCLE_MILLIS = 400

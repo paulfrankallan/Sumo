@@ -1,5 +1,13 @@
 package feature.game.presentation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +23,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
@@ -47,6 +56,8 @@ import feature.settings.data.PrefsRepository
 import platform.presentation.KeepScreenOn
 import sumo.shared.generated.resources.Res
 import sumo.shared.generated.resources.game_bg
+import sumo.shared.generated.resources.ready_btn
+import sumo.shared.generated.resources.ready_btn_rip
 
 @OptIn(ExperimentalSettingsApi::class)
 @Composable
@@ -62,6 +73,7 @@ fun GameScreen(
     val bottomJoystickState = rememberJoystickState()
 
     LaunchedEffect(Unit) {
+        viewModel.playHyoshigiFeedback()
         showInterstitialAd()
     }
 
@@ -128,61 +140,66 @@ fun GameScreenContent(
                 padding(vertical = symmetricPadding)
             }
         ) {
-            RikishiJoystick(
-                state = topJoystickState,
-                primaryColor = playerTwoColor,
-                accentColor = playerTwoColor,
-                isPullPowerMoveEnabled = state.isPullPowerMoveEnabled,
-                onPull = {
-                    onIntent(
-                        GameIntent.PowerMovePressed(
-                            playerId = state.topPlayer.id,
-                            powerMove = PowerMove.PULL,
-                        )
-                    )
-                },
-                isPushPowerMoveEnabled = state.isPushPowerMoveEnabled,
-                onPush = {
-                    onIntent(
-                        GameIntent.PowerMovePressed(
-                            playerId = state.topPlayer.id,
-                            powerMove = PowerMove.PUSH,
-                        )
-                    )
-                },
-                onMoveStart = { snapshot ->
-                    if (state.playState == PlayState.NEW || state.playState == PlayState.FINISHED) {
-                        onIntent(GameIntent.StartGame)
-                    }
-                    joystickTapDirection(
-                        position = snapshot.position,
-                        center = topJoystickState.center,
-                        strength = snapshot.strength,
-                        reverse = true,
-                    )?.let { direction ->
-                        onSubmitRapidTap(state.topPlayer.id, direction)
-                    }
-                },
-                onMove = { snapshot ->
-                    onSubmitInput(InputCommand(
-                        playerId = state.topPlayer.id,
-                        // Negate: top joystick is rotated 180° visually.
-                        velocityVector = Offset(
-                            x = -snapshot.position.x.minus(topJoystickState.center.x)
-                                .div(topJoystickState.radius)
-                                .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
-                            y = -snapshot.position.y.minus(topJoystickState.center.y)
-                                .div(topJoystickState.radius)
-                                .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
-                        ),
-                        source = InputSource.JOYSTICK,
-                    ))
+            ReadyOrJoystick(
+                isReady = state.isTopPlayerReady,
+                onReady = {
+                    onIntent(GameIntent.PlayerReady(state.topPlayer.id))
                 },
                 modifier = Modifier
                     .weight(1f)
                     .padding(top = 8.dp)
                     .rotate(180f)
-            )
+            ) { modifier ->
+                RikishiJoystick(
+                    state = topJoystickState,
+                    primaryColor = playerTwoColor,
+                    accentColor = playerTwoColor,
+                    isPullPowerMoveEnabled = state.isPullPowerMoveEnabled,
+                    onPull = {
+                        onIntent(
+                            GameIntent.PowerMovePressed(
+                                playerId = state.topPlayer.id,
+                                powerMove = PowerMove.PULL,
+                            )
+                        )
+                    },
+                    isPushPowerMoveEnabled = state.isPushPowerMoveEnabled,
+                    onPush = {
+                        onIntent(
+                            GameIntent.PowerMovePressed(
+                                playerId = state.topPlayer.id,
+                                powerMove = PowerMove.PUSH,
+                            )
+                        )
+                    },
+                    onMoveStart = { snapshot ->
+                        joystickTapDirection(
+                            position = snapshot.position,
+                            center = topJoystickState.center,
+                            strength = snapshot.strength,
+                            reverse = true,
+                        )?.let { direction ->
+                            onSubmitRapidTap(state.topPlayer.id, direction)
+                        }
+                    },
+                    onMove = { snapshot ->
+                        onSubmitInput(InputCommand(
+                            playerId = state.topPlayer.id,
+                            // Negate: top joystick is rotated 180° visually.
+                            velocityVector = Offset(
+                                x = -snapshot.position.x.minus(topJoystickState.center.x)
+                                    .div(topJoystickState.radius)
+                                    .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
+                                y = -snapshot.position.y.minus(topJoystickState.center.y)
+                                    .div(topJoystickState.radius)
+                                    .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
+                            ),
+                            source = InputSource.JOYSTICK,
+                        ))
+                    },
+                    modifier = modifier,
+                )
+            }
             HealthBar(
                 health = state.topPlayer.health,
                 foregroundColor = playerTwoColor,
@@ -212,61 +229,118 @@ fun GameScreenContent(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             )
-            RikishiJoystick(
-                state = bottomJoystickState,
-                primaryColor = playerOneColor,
-                accentColor = playerOneColor,
-                isPullPowerMoveEnabled = state.isPullPowerMoveEnabled,
-                onPull = {
-                    onIntent(
-                        GameIntent.PowerMovePressed(
-                            playerId = state.bottomPlayer.id,
-                            powerMove = PowerMove.PULL,
-                        )
-                    )
-                },
-                isPushPowerMoveEnabled = state.isPushPowerMoveEnabled,
-                onPush = {
-                    onIntent(
-                        GameIntent.PowerMovePressed(
-                            playerId = state.bottomPlayer.id,
-                            powerMove = PowerMove.PUSH,
-                        )
-                    )
-                },
-                onMoveStart = { snapshot ->
-                    if (state.playState == PlayState.NEW || state.playState == PlayState.FINISHED) {
-                        onIntent(GameIntent.StartGame)
-                    }
-                    joystickTapDirection(
-                        position = snapshot.position,
-                        center = bottomJoystickState.center,
-                        strength = snapshot.strength,
-                        reverse = false,
-                    )?.let { direction ->
-                        onSubmitRapidTap(state.bottomPlayer.id, direction)
-                    }
-                },
-                onMove = { snapshot ->
-                    onSubmitInput(InputCommand(
-                        playerId = state.bottomPlayer.id,
-                        velocityVector = Offset(
-                            x = snapshot.position.x.minus(bottomJoystickState.center.x)
-                                .div(bottomJoystickState.radius)
-                                .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
-                            y = snapshot.position.y.minus(bottomJoystickState.center.y)
-                                .div(bottomJoystickState.radius)
-                                .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
-                        ),
-                        source = InputSource.JOYSTICK,
-                    ))
+            ReadyOrJoystick(
+                isReady = state.isBottomPlayerReady,
+                onReady = {
+                    onIntent(GameIntent.PlayerReady(state.bottomPlayer.id))
                 },
                 modifier = Modifier
                     .weight(1f)
                     .padding(bottom = 8.dp)
-            )
+            ) { modifier ->
+                RikishiJoystick(
+                    state = bottomJoystickState,
+                    primaryColor = playerOneColor,
+                    accentColor = playerOneColor,
+                    isPullPowerMoveEnabled = state.isPullPowerMoveEnabled,
+                    onPull = {
+                        onIntent(
+                            GameIntent.PowerMovePressed(
+                                playerId = state.bottomPlayer.id,
+                                powerMove = PowerMove.PULL,
+                            )
+                        )
+                    },
+                    isPushPowerMoveEnabled = state.isPushPowerMoveEnabled,
+                    onPush = {
+                        onIntent(
+                            GameIntent.PowerMovePressed(
+                                playerId = state.bottomPlayer.id,
+                                powerMove = PowerMove.PUSH,
+                            )
+                        )
+                    },
+                    onMoveStart = { snapshot ->
+                        joystickTapDirection(
+                            position = snapshot.position,
+                            center = bottomJoystickState.center,
+                            strength = snapshot.strength,
+                            reverse = false,
+                        )?.let { direction ->
+                            onSubmitRapidTap(state.bottomPlayer.id, direction)
+                        }
+                    },
+                    onMove = { snapshot ->
+                        onSubmitInput(InputCommand(
+                            playerId = state.bottomPlayer.id,
+                            velocityVector = Offset(
+                                x = snapshot.position.x.minus(bottomJoystickState.center.x)
+                                    .div(bottomJoystickState.radius)
+                                    .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
+                                y = snapshot.position.y.minus(bottomJoystickState.center.y)
+                                    .div(bottomJoystickState.radius)
+                                    .times(snapshot.strength * JOYSTICK_INPUT_SCALE),
+                            ),
+                            source = InputSource.JOYSTICK,
+                        ))
+                    },
+                    modifier = modifier,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun ReadyOrJoystick(
+    isReady: Boolean,
+    onReady: () -> Unit,
+    modifier: Modifier = Modifier,
+    joystick: @Composable (Modifier) -> Unit,
+) {
+    Box(modifier = modifier) {
+        AnimatedVisibility(
+            visible = !isReady,
+            enter = fadeIn(tween(READY_BUTTON_TRANSITION_DURATION_MILLIS)),
+            exit = fadeOut(tween(READY_BUTTON_TRANSITION_DURATION_MILLIS)),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            ReadyButton(
+                onReady = onReady,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        AnimatedVisibility(
+            visible = isReady,
+            enter = fadeIn(tween(READY_BUTTON_TRANSITION_DURATION_MILLIS)),
+            exit = fadeOut(tween(READY_BUTTON_TRANSITION_DURATION_MILLIS)),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            joystick(Modifier.fillMaxSize())
+        }
+    }
+}
+
+@Composable
+private fun ReadyButton(
+    onReady: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    Image(
+        painter = painterResource(
+            if (isPressed) Res.drawable.ready_btn_rip else Res.drawable.ready_btn,
+        ),
+        contentDescription = null,
+        modifier = modifier.clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onReady,
+        ),
+        contentScale = ContentScale.Fit,
+    )
 }
 
 @Preview
