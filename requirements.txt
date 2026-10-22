@@ -102,6 +102,13 @@ In the IN_PROGRESS state:
 * Play the Hakkeyoi sound effect as it is implemented now; i.e. based on the Rikishi haven't moved enough rules.
 * Play Nokotta, nokotta sound effect when a Rikishi is injured after they are reset to signify that the match is still ongoing.
 
+
+In the DAMAGE_RESETTING  state:
+
+ * Change Rikishi to damage pose (rikishi_blue_fall.png and rikishi_red_fall.png).
+ *
+
+
 State changes to FINISHED when one of the Rikishi loses all of their health.
 
 * state changes to FINISHED

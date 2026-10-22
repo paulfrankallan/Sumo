@@ -52,7 +52,6 @@ class GameViewModel(
     private var startCeremonyJob: Job? = null
     private val powerMoveTimerJobs = mutableMapOf<PowerMove, Job>()
     private val gameSession = MutableStateFlow(0)
-    private var finalGameOverSoundPending = false
     // Per-player flags prevent double damage to the same player in one reset cycle
     // while still allowing both players to be damaged in the same cycle.
     private val isTopResettingAfterDamage = mutableStateOf(false)
@@ -167,8 +166,6 @@ class GameViewModel(
     }
 
     private fun deactivateGame(playFinalGameOverSound: Boolean = false) {
-        val shouldPlayFinalGameOverSound = playFinalGameOverSound && finalGameOverSoundPending
-        finalGameOverSoundPending = false
         stopGameActivity()
         _state.update { state ->
             state.copy(
@@ -176,7 +173,7 @@ class GameViewModel(
                 isStartCeremonyVisible = false,
             )
         }
-        if (shouldPlayFinalGameOverSound) {
+        if (playFinalGameOverSound) {
             launchFinalGameOverAudio()
         }
     }
@@ -296,9 +293,7 @@ class GameViewModel(
                             _state.update { s -> applyDamage(s, player) }
                             // Reset clash vibration allowance — next clash should vibrate.
                             hasVibratedSinceDamage = false
-
                             if (state.value.isGameOver) {
-                                finalGameOverSoundPending = true
                                 stopGameActivity()
                             } else {
                                 currentInitialWorld(currentState)?.let { gameLoop.reset(it) }
@@ -348,7 +343,6 @@ class GameViewModel(
                 ) {
                     return
                 }
-                finalGameOverSoundPending = false
                 stopGameActivity()
                 isTopResettingAfterDamage.value = false
                 isBottomResettingAfterDamage.value = false
@@ -419,9 +413,7 @@ class GameViewModel(
                     _state.update { state -> applyDamage(state, intent.player) }
                     // Damage happened — allow the next clash to vibrate.
                     hasVibratedSinceDamage = false
-
                     if (state.value.isGameOver) {
-                        finalGameOverSoundPending = true
                         stopGameActivity()
                     } else {
                         currentInitialWorld(state.value)?.let { gameLoop.reset(it) }
@@ -523,9 +515,7 @@ class GameViewModel(
             currentState.copy(events = currentState.events.filter { it.id != eventId })
         }
     }
-
     override fun onCleared() {
-        finalGameOverSoundPending = false
         stopGameActivity()
         super.onCleared()
     }
