@@ -27,26 +27,10 @@
     <!-- Game Instructions -->
     <string name="instructions">Instructions</string>
     
-    <!-- Overview Instructions -->
-    <string name="instruct_general_welcome">Get ready to rumble! This two-player battle is a digital twist on the classic Sumo game.</string>
-    <string name="instruct_general_objective">Your goal is to defeat your opponent by depleting their health before they can do the same to you.</string>
-    <string name="instruct_general_modes">The game features three distinct modes that test your strength, agility, and focus.</string>
-    <string name="instruct_general_damage">Forcing your opponent’s thumbprint into the barbed wire arena inflicts damage, as do certain events, such as making an incorrect choice in the focus game mode.</string>
-    
-    <!-- Strength Instructions -->
-    <string name="instruct_strength_title">Strength</string>
-    <string name="instruct_strength_description"> mode is all about brute force. Minimal skill is required; your goal is to push your opponent’s thumbprint into the barbed wire surrounding the arena while avoiding it yourself. If a player touches the barbed wire and gets injured, both players reset to their starting positions. The winner is the player who outlasts their opponent by depleting their opponent’s health completely.</string>
-    
-    <!-- Agility Instructions -->
-    <string name="instruct_agility_title">Agility</string>
-    <string name="instruct_agility_description"> mode follows similar rules to Strength mode but introduces the added challenge of thumb locks. These locks are triggered in three scenarios: after damage when thumbprints are reset, when a player’s thumb leaves their thumbprint, and at random intervals during the Sumo match. Players must act quickly to unlock their thumbs first to maintain the advantage!</string>
-    
-    <!-- Focus Instructions -->
-    <string name="instruct_focus_title">Focus</string>
-    <string name="instruct_focus_description"> mode builds on the rules of the previous two modes but adds a psychological twist: the Stroop Test. This test, commonly used in clinical settings, measures the delay in reaction time between congruent and incongruent stimuli. In Focus mode, when a player’s thumbs are locked, they must solve the Stroop Test to unlock them.</string>
-    <string name="instruct_focus_stroop_intro">To complete the Stroop Test:</string>
-    <string name="instruct_focus_stroop_1">Match the color bar to the actual physical color of the word, ignoring what the word spells.</string>
-    <string name="instruct_focus_stroop_2">If no match exists as per above, match the color bar to the color the word spells instead of its physical color.</string>
-    <string name="instruct_focus_stroop_outro">The player who solves their Stroop Tests the fastest gains a significant advantage in the war!</string>
+    <!-- Game Instructions -->
+    <string name="instructions_getting_started">Sumo is a local two-player game. Blue plays from the top of the screen and red plays from the bottom. Both players tap READY to begin the ceremony and start the bout.</string>
+    <string name="instructions_movement">Use the joystick on your side of the screen to move your rikishi around the dohyō. If Full Contact is enabled in Settings, you can also drag your rikishi directly.</string>
+    <string name="instructions_power_moves">Push and Pull buttons light up during a bout. Tap an available move for a brief advantage, then use it to take control of the ring.</string>
+    <string name="instructions_winning">Force your opponent outside the tawara to take health. After a non-final hit, both rikishi return to the Shikiri-sen. Empty your opponent's health bar to win; after the result ceremony, both players can tap READY for the next bout.</string>
     
 </resources>

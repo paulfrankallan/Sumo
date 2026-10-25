@@ -40,7 +40,8 @@ fun InstructionsScreenSections() {
     val isExpandedMap = remember {
         List(instructionsScreenSectionTypes.size) { index: Int ->
             val isThisTypeSelected =
-                instructionsScreenSectionTypes[index] == InstructionsScreenSectionType.Overview
+                instructionsScreenSectionTypes[index] ==
+                    InstructionsScreenSectionType.GettingStarted
             index to isThisTypeSelected
         }.toMutableStateMap()
     }
@@ -158,20 +159,20 @@ fun InfoScreenItem(
             .padding(16.dp)
     ) {
         when (sectionData.instructionsScreenSectionType) {
-            InstructionsScreenSectionType.Overview -> {
-                OverviewInstructions()
+            InstructionsScreenSectionType.GettingStarted -> {
+                GettingStartedInstructions()
             }
 
-            InstructionsScreenSectionType.Strength -> {
-                StrengthInstructions()
+            InstructionsScreenSectionType.Movement -> {
+                MovementInstructions()
             }
 
-            InstructionsScreenSectionType.Agility -> {
-                AgilityInstructions()
+            InstructionsScreenSectionType.PowerMoves -> {
+                PowerMovesInstructions()
             }
 
-            InstructionsScreenSectionType.Focus -> {
-                FocusInstructions()
+            InstructionsScreenSectionType.Winning -> {
+                WinningInstructions()
             }
         }
     }
