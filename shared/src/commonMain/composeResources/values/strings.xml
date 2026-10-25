@@ -29,7 +29,7 @@
     
     <!-- Game Instructions -->
     <string name="instructions_getting_started">Sumo is a local two-player game. Blue plays from the top of the screen and red plays from the bottom. Both players tap READY to begin the ceremony and start the bout.</string>
-    <string name="instructions_movement">Use the joystick on your side of the screen to move your rikishi around the dohyō. If Full Contact is enabled in Settings, you can also drag your rikishi directly.</string>
+    <string name="instructions_movement">Use the joystick on your side of the screen to move your rikishi around the dohyō. Rapidly tapping a joystick direction gives a short extra burst of force. If Full Contact is enabled in Settings, you can also drag your rikishi directly.</string>
     <string name="instructions_power_moves">Push and Pull buttons light up during a bout. Tap an available move for a brief advantage, then use it to take control of the ring.</string>
     <string name="instructions_winning">Force your opponent outside the tawara to take health. After a non-final hit, both rikishi return to the Shikiri-sen. Empty your opponent's health bar to win; after the result ceremony, both players can tap READY for the next bout.</string>
     
