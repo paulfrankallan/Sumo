@@ -3,9 +3,7 @@ package feature.game.presentation
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import app.sound.SoundAndVibrationFeedback
-import app.theme.AppColor
 import feature.common.events.GameOverEvent
 import feature.common.model.Position
 import feature.common.presentation.CMViewModel
@@ -30,11 +28,9 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.DrawableResource
 import platform.RES_ID_MUSIC_3
 import platform.randomUUID
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.loser
 import sumo.shared.generated.resources.rikishi_blue_crouch
 import sumo.shared.generated.resources.rikishi_blue_fall
 import sumo.shared.generated.resources.rikishi_blue_push
@@ -43,7 +39,6 @@ import sumo.shared.generated.resources.rikishi_red_crouch
 import sumo.shared.generated.resources.rikishi_red_fall
 import sumo.shared.generated.resources.rikishi_red_push
 import sumo.shared.generated.resources.rikishi_red_standing
-import sumo.shared.generated.resources.winner
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
@@ -56,6 +51,7 @@ class GameViewModel(
 ) : CMViewModel<GameState, Intent>() {
     private var startCeremonyJob: Job? = null
     private var damageResetJob: Job? = null
+    private var gameOverAnimationJob: Job? = null
     private var mattaNashiJob: Job? = null
     private val powerMoveTimerJobs = mutableMapOf<PowerMove, Job>()
     private val gameSession = MutableStateFlow(0)
@@ -216,6 +212,8 @@ class GameViewModel(
         startCeremonyJob = null
         damageResetJob?.cancel()
         damageResetJob = null
+        gameOverAnimationJob?.cancel()
+        gameOverAnimationJob = null
         mattaNashiJob?.cancel()
         mattaNashiJob = null
         disableAllPowerMoves()
@@ -427,35 +425,145 @@ class GameViewModel(
         }
     }
 
-    private fun deactivateGame(playFinalGameOverSound: Boolean = false) {
+    private fun deactivateGame() {
         stopGameActivity()
         _state.update { state ->
             state.copy(
                 playState = PlayState.FINISHED,
                 isStartCeremonyVisible = false,
+                gameOverAnimationPhase = GameOverAnimationPhase.NONE,
                 isTopPlayerReady = false,
                 isBottomPlayerReady = false,
             )
         }
-        if (playFinalGameOverSound) {
-            launchFinalGameOverAudio()
+    }
+
+    private fun startGameOverAnimation() {
+        stopGameActivity()
+        if (!state.value.isGameOver) return
+
+        val session = gameSession.value
+        _state.update { state ->
+            state.copy(
+                playState = PlayState.FINISHED,
+                isStartCeremonyVisible = false,
+                gameOverAnimationPhase = GameOverAnimationPhase.DECISIVE_MOMENT,
+                ui = UI().withDamagedRikishi(state.losingPlayerPosition()),
+            )
+        }
+        soundAndVibration.gameOverFeedback()
+
+        gameOverAnimationJob = scope.launch {
+            delay(GameCeremonyTimings.GAME_OVER_DECISIVE_MOMENT_DURATION_MILLIS.milliseconds)
+            if (!advanceGameOverAnimation(session, GameOverAnimationPhase.REFEREE_DECLARATION)) {
+                return@launch
+            }
+            soundAndVibration.finalGameOverFeedback()
+            playGameOverHyoshigiAfterDelay(session)
+
+            delay(
+                GameCeremonyTimings.GAME_OVER_REFEREE_DECLARATION_DURATION_MILLIS.milliseconds,
+            )
+            if (!advanceGameOverAnimation(session, GameOverAnimationPhase.POINT_TO_WINNER)) {
+                return@launch
+            }
+
+            delay(
+                GameCeremonyTimings.GAME_OVER_POINT_TO_WINNER_DURATION_MILLIS.milliseconds,
+            )
+            if (!advanceGameOverAnimation(session, GameOverAnimationPhase.RESULT_REVEAL)) {
+                return@launch
+            }
+
+            delay(GameCeremonyTimings.GAME_OVER_RESULT_REVEAL_DURATION_MILLIS.milliseconds)
+            if (!advanceGameOverAnimation(session, GameOverAnimationPhase.SETTLING)) {
+                return@launch
+            }
+
+            delay(GameCeremonyTimings.GAME_OVER_SETTLING_DURATION_MILLIS.milliseconds)
+            if (!advanceGameOverAnimation(session, GameOverAnimationPhase.RETURNING_TO_READY)) {
+                return@launch
+            }
+            moveRikishiToStartingPositions(session)
+            if (!isGameOverAnimationActive(session)) return@launch
+
+            completeGameOverAnimation(session)
         }
     }
 
-    private fun launchFinalGameOverAudio() {
-        val session = gameSession.value
+    private fun advanceGameOverAnimation(
+        session: Int,
+        phase: GameOverAnimationPhase,
+    ): Boolean {
+        if (!isGameOverAnimationActive(session)) return false
+
+        _state.update { state ->
+            state.copy(gameOverAnimationPhase = phase)
+        }
+        return true
+    }
+
+    private fun isGameOverAnimationActive(session: Int): Boolean =
+        session == gameSession.value &&
+            state.value.isGameOver &&
+            state.value.gameOverAnimationPhase != GameOverAnimationPhase.NONE
+
+    private fun playGameOverHyoshigiAfterDelay(session: Int) {
         scope.launch(Dispatchers.Default) {
-            if (session == gameSession.value && state.value.isGameOver) {
-                soundAndVibration.finalGameOverFeedback()
-            }
-            delay(HYOSHIGI_AFTER_GAME_OVER_DELAY_MILLIS.milliseconds)
-            if (
-                session == gameSession.value &&
-                state.value.playState == PlayState.FINISHED
-            ) {
+            delay(GameCeremonyTimings.GAME_OVER_HYOSHIGI_DELAY_MILLIS.milliseconds)
+            if (isGameOverAnimationActive(session)) {
                 soundAndVibration.hyoshigiFeedback()
             }
         }
+    }
+
+    private suspend fun moveRikishiToStartingPositions(session: Int) {
+        val startWorld = gameLoop.worldState.value
+        val targetWorld = newStateWorld(state.value)
+        if (startWorld == null || targetWorld == null) {
+            delay(GameCeremonyTimings.GAME_OVER_RETURN_TO_READY_DURATION_MILLIS.milliseconds)
+            return
+        }
+
+        val startTime = TimeSource.Monotonic.markNow()
+        while (
+            isGameOverAnimationActive(session) &&
+            state.value.gameOverAnimationPhase == GameOverAnimationPhase.RETURNING_TO_READY
+        ) {
+            val progress = (
+                startTime.elapsedNow().inWholeMilliseconds.toFloat() /
+                    GameCeremonyTimings.GAME_OVER_RETURN_TO_READY_DURATION_MILLIS
+                ).coerceIn(0f, 1f)
+            gameLoop.reset(startWorld.interpolateTowards(targetWorld, progress))
+            if (progress >= 1f) return
+            delay(GameCeremonyTimings.RIKISHI_MOVEMENT_FRAME_DURATION_MILLIS.milliseconds)
+        }
+    }
+
+    private fun completeGameOverAnimation(session: Int) {
+        if (!isGameOverAnimationActive(session)) return
+
+        val resetWorld = newStateWorld(state.value)
+        _state.update { state ->
+            state.copy(
+                gameOverResult = null,
+                playState = PlayState.FINISHED,
+                isStartCeremonyVisible = false,
+                gameOverAnimationPhase = GameOverAnimationPhase.NONE,
+                isTopPlayerReady = false,
+                isBottomPlayerReady = false,
+                topPlayer = Player(id = state.topPlayer.id, position = Position.TOP),
+                bottomPlayer = Player(id = state.bottomPlayer.id, position = Position.BOTTOM),
+                ui = UI(),
+                topRikishiPosition = resetWorld?.topRikishi?.position ?: state.topRikishiPosition,
+                bottomRikishiPosition = resetWorld?.bottomRikishi?.position
+                    ?: state.bottomRikishiPosition,
+            )
+        }
+        resetWorld?.let(gameLoop::reset)
+        triggerResetThumbPositions()
+        soundAndVibration.stopGameFeedback()
+        gameOverAnimationJob = null
     }
 
     private fun startMattaNashiFeedback() {
@@ -608,6 +716,9 @@ class GameViewModel(
     override fun onIntent(intent: Intent) {
         when (intent) {
             GameIntent.StartGame -> {
+                if (state.value.gameOverAnimationPhase != GameOverAnimationPhase.NONE) {
+                    return
+                }
                 if (!state.value.arePlayersReady) {
                     return
                 }
@@ -645,31 +756,7 @@ class GameViewModel(
             }
 
             is GameIntent.GameOver -> {
-                val crouchingWorld = shikiriSenWorld(state.value)
-                _state.update { state ->
-                    state.copy(
-                        topRikishiPosition = crouchingWorld?.topRikishi?.position
-                            ?: state.topRikishiPosition,
-                        bottomRikishiPosition = crouchingWorld?.bottomRikishi?.position
-                            ?: state.bottomRikishiPosition,
-                        ui = state.ui.copy(
-                            topThumbView = state.ui.topThumbView.copy(
-                                foregroundColor = getThumbViewForegroundColor(state, state.topPlayer),
-                                foregroundImage = getThumbViewForegroundImage(state, state.topPlayer),
-                            ),
-                            bottomThumbView = state.ui.bottomThumbView.copy(
-                                foregroundColor = getThumbViewForegroundColor(state, state.bottomPlayer),
-                                foregroundImage = getThumbViewForegroundImage(state, state.bottomPlayer),
-                            ),
-                            isTopPushing = false,
-                            isBottomPushing = false,
-                            isTopWalking = false,
-                            isBottomWalking = false,
-                        )
-                    )
-                }
-                deactivateGame(playFinalGameOverSound = intent.result != null)
-                crouchingWorld?.let(gameLoop::reset)
+                startGameOverAnimation()
             }
 
             GameIntent.StopGame -> {
@@ -713,41 +800,6 @@ class GameViewModel(
         }
     }
 
-    private fun getThumbViewForegroundColor(state: GameState, player: Player): Color? {
-        return if (state.isGameOver) {
-            null
-        } else {
-            if (player.health == 0) {
-                AppColor.BLOOD_RED.color
-            } else state.ui.topThumbView.foregroundColor
-        }
-    }
-
-    private fun getThumbViewForegroundImage(state: GameState, player: Player): DrawableResource {
-        return if(state.isGameOver) {
-            // Show winner/loser image based on health
-            if (player.health == 0) {
-                Res.drawable.loser
-            } else {
-                Res.drawable.winner
-            }
-        } else {
-            if (player.position == Position.TOP) {
-                if (state.ui.isTopPushing) {
-                    Res.drawable.rikishi_blue_push
-                } else {
-                    Res.drawable.rikishi_blue_standing
-                }
-            } else {
-                if (state.ui.isBottomPushing) {
-                    Res.drawable.rikishi_red_push
-                } else {
-                    Res.drawable.rikishi_red_standing
-                }
-            }
-        }
-    }
-
     override fun onNavigationComplete(navigationEvent: NavigationEvent) {}
 
     override fun onEventComplete(eventId: String) {
@@ -775,7 +827,7 @@ class GameViewModel(
                 ).coerceIn(0f, 1f)
             gameLoop.reset(startWorld.interpolateTowards(targetWorld, progress))
             if (progress >= 1f) return true
-            delay(CEREMONY_MOVEMENT_FRAME_MILLIS.milliseconds)
+            delay(GameCeremonyTimings.RIKISHI_MOVEMENT_FRAME_DURATION_MILLIS.milliseconds)
         }
         return false
     }
@@ -787,7 +839,7 @@ class GameViewModel(
             _state.update { state ->
                 state.copy(isStartCeremonyVisible = true)
             }
-            delay(GUNBAI_DURATION_MILLIS.milliseconds)
+            delay(GameCeremonyTimings.START_GUNBAI_TOTAL_DURATION_MILLIS.milliseconds)
             if (!isStartCeremonyActive(session)) return@launch
             _state.update { state ->
                 state.copy(isStartCeremonyVisible = false)
@@ -824,6 +876,12 @@ private fun GameState.isPowerMoveEnabled(powerMove: PowerMove): Boolean = when (
 private val GameState.arePlayersReady: Boolean
     get() = isTopPlayerReady && isBottomPlayerReady
 
+private fun GameState.losingPlayerPosition(): Position? = when (gameOverResult?.winner?.id) {
+    topPlayer.id -> Position.BOTTOM
+    bottomPlayer.id -> Position.TOP
+    else -> null
+}
+
 private fun GameState.withPowerMoveEnabled(
     powerMove: PowerMove,
     enabled: Boolean,
@@ -837,9 +895,6 @@ internal const val POWER_MOVE_MAX_DELAY_MILLIS = 30_000L
 private const val RIKISHI_WALK_DURATION_MILLIS = 1_000L
 private const val SHIKIRI_SEN_PAUSE_DURATION_MILLIS = 500L
 private const val CROUCH_DELAY_AFTER_TE_O_TSUITE_MILLIS = 2_000L
-private const val GUNBAI_DURATION_MILLIS = 3_000L
-private const val HYOSHIGI_AFTER_GAME_OVER_DELAY_MILLIS = 1_000L
-private const val CEREMONY_MOVEMENT_FRAME_MILLIS = 16L
 private const val DAMAGE_RESET_DURATION_MILLIS = 3_000L
 private const val MATTA_NASHI_MIN_DELAY_MILLIS = 5_000L
 private const val MATTA_NASHI_MAX_DELAY_MILLIS = 15_000L

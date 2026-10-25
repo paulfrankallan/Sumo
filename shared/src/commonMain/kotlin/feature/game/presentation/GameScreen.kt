@@ -1,6 +1,10 @@
 package feature.game.presentation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,6 +34,7 @@ import androidx.compose.ui.draw.paint
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
@@ -50,11 +55,14 @@ import feature.game.joystick.ui.state.JoystickState
 import feature.game.joystick.ui.view.rememberJoystickState
 import feature.game.presentation.model.Player
 import feature.game.presentation.ui.Janome
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import feature.settings.data.PrefsRepository
 import platform.presentation.KeepScreenOn
 import sumo.shared.generated.resources.Res
+import sumo.shared.generated.resources.badge_defeat
+import sumo.shared.generated.resources.badge_victory
 import sumo.shared.generated.resources.game_bg
 import sumo.shared.generated.resources.ready_btn
 import sumo.shared.generated.resources.ready_btn_rip
@@ -142,6 +150,9 @@ fun GameScreenContent(
         ) {
             ReadyOrJoystick(
                 isReady = state.isTopPlayerReady,
+                resultBadge = state.resultBadgeFor(Position.TOP),
+                showResultBadge = state.gameOverAnimationPhase.showsResults,
+                isGameOverAnimationActive = state.gameOverAnimationPhase.isActive,
                 onReady = {
                     onIntent(GameIntent.PlayerReady(state.topPlayer.id))
                 },
@@ -149,6 +160,7 @@ fun GameScreenContent(
                     .weight(1f)
                     .padding(top = 8.dp)
                     .rotate(180f)
+                    .zIndex(if (state.gameOverAnimationPhase.isActive) 1f else 0f)
             ) { modifier ->
                 RikishiJoystick(
                     state = topJoystickState,
@@ -231,12 +243,16 @@ fun GameScreenContent(
             )
             ReadyOrJoystick(
                 isReady = state.isBottomPlayerReady,
+                resultBadge = state.resultBadgeFor(Position.BOTTOM),
+                showResultBadge = state.gameOverAnimationPhase.showsResults,
+                isGameOverAnimationActive = state.gameOverAnimationPhase.isActive,
                 onReady = {
                     onIntent(GameIntent.PlayerReady(state.bottomPlayer.id))
                 },
                 modifier = Modifier
                     .weight(1f)
                     .padding(bottom = 8.dp)
+                    .zIndex(if (state.gameOverAnimationPhase.isActive) 1f else 0f)
             ) { modifier ->
                 RikishiJoystick(
                     state = bottomJoystickState,
@@ -294,13 +310,16 @@ fun GameScreenContent(
 @Composable
 private fun ReadyOrJoystick(
     isReady: Boolean,
+    resultBadge: ResultBadgeVisual?,
+    showResultBadge: Boolean,
+    isGameOverAnimationActive: Boolean,
     onReady: () -> Unit,
     modifier: Modifier = Modifier,
     joystick: @Composable (Modifier) -> Unit,
 ) {
     Box(modifier = modifier) {
         AnimatedVisibility(
-            visible = !isReady,
+            visible = !isGameOverAnimationActive && !isReady,
             enter = fadeIn(tween(READY_BUTTON_TRANSITION_DURATION_MILLIS)),
             exit = fadeOut(tween(READY_BUTTON_TRANSITION_DURATION_MILLIS)),
             modifier = Modifier.fillMaxSize(),
@@ -311,14 +330,76 @@ private fun ReadyOrJoystick(
             )
         }
         AnimatedVisibility(
-            visible = isReady,
+            visible = !isGameOverAnimationActive && isReady,
             enter = fadeIn(tween(READY_BUTTON_TRANSITION_DURATION_MILLIS)),
             exit = fadeOut(tween(READY_BUTTON_TRANSITION_DURATION_MILLIS)),
             modifier = Modifier.fillMaxSize(),
         ) {
             joystick(Modifier.fillMaxSize())
         }
+        AnimatedVisibility(
+            visible = showResultBadge && resultBadge != null,
+            enter = fadeIn(
+                animationSpec = tween(
+                    durationMillis = GameCeremonyTimings.GAME_OVER_BADGE_ENTRANCE_DURATION_MILLIS,
+                ),
+            ) + scaleIn(
+                initialScale = 0.9f,
+                animationSpec = if (resultBadge?.isVictory == true) {
+                    spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    )
+                } else {
+                    tween(
+                        durationMillis = GameCeremonyTimings.GAME_OVER_BADGE_ENTRANCE_DURATION_MILLIS,
+                    )
+                },
+            ),
+            exit = fadeOut(
+                animationSpec = tween(
+                    durationMillis = GameCeremonyTimings.GAME_OVER_RETURN_FADE_DURATION_MILLIS,
+                ),
+            ) + scaleOut(
+                targetScale = 0.9f,
+                animationSpec = tween(
+                    durationMillis = GameCeremonyTimings.GAME_OVER_RETURN_FADE_DURATION_MILLIS,
+                ),
+            ),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            resultBadge?.let { badge ->
+                Image(
+                    painter = painterResource(badge.resource),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
+            }
+        }
     }
+}
+
+private data class ResultBadgeVisual(
+    val resource: DrawableResource,
+    val isVictory: Boolean,
+)
+
+private fun GameState.resultBadgeFor(position: Position): ResultBadgeVisual? {
+    val winner = gameOverResult?.winner ?: return null
+    val player = when (position) {
+        Position.TOP -> topPlayer
+        Position.BOTTOM -> bottomPlayer
+    }
+    val isVictory = winner.id == player.id
+    return ResultBadgeVisual(
+        resource = if (isVictory) {
+            Res.drawable.badge_victory
+        } else {
+            Res.drawable.badge_defeat
+        },
+        isVictory = isVictory,
+    )
 }
 
 @Composable

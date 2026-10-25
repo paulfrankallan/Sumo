@@ -149,6 +149,8 @@ fun Dohyo(
             }
         }
 
+        GameOverBackgroundEffects(state = currentState.value)
+
         Rikishi(
             thumbOffsetPosition = topThumbPosition,
             isOutOfBounds = false,

@@ -23,6 +23,7 @@ data class GameState(
     val gameOverResult: GameOverResult? = null,
     val playState: PlayState = PlayState.NEW,
     val isStartCeremonyVisible: Boolean = false,
+    val gameOverAnimationPhase: GameOverAnimationPhase = GameOverAnimationPhase.NONE,
     val isTopPlayerReady: Boolean = false,
     val isBottomPlayerReady: Boolean = false,
     val ui: UI = UI(),
@@ -76,6 +77,35 @@ enum class PlayState {
     DAMAGE_RESETTING,
     FINISHED
 }
+
+enum class GameOverAnimationPhase {
+    NONE,
+    DECISIVE_MOMENT,
+    REFEREE_DECLARATION,
+    POINT_TO_WINNER,
+    RESULT_REVEAL,
+    SETTLING,
+    RETURNING_TO_READY,
+}
+
+internal val GameOverAnimationPhase.isActive: Boolean
+    get() = this != GameOverAnimationPhase.NONE
+
+internal val GameOverAnimationPhase.showsGunbai: Boolean
+    get() = this == GameOverAnimationPhase.REFEREE_DECLARATION ||
+        this == GameOverAnimationPhase.POINT_TO_WINNER ||
+        this == GameOverAnimationPhase.RESULT_REVEAL ||
+        this == GameOverAnimationPhase.SETTLING
+
+internal val GameOverAnimationPhase.isPointingGunbai: Boolean
+    get() = this == GameOverAnimationPhase.POINT_TO_WINNER ||
+        this == GameOverAnimationPhase.RESULT_REVEAL ||
+        this == GameOverAnimationPhase.SETTLING ||
+        this == GameOverAnimationPhase.RETURNING_TO_READY
+
+internal val GameOverAnimationPhase.showsResults: Boolean
+    get() = this == GameOverAnimationPhase.RESULT_REVEAL ||
+        this == GameOverAnimationPhase.SETTLING
 
 internal const val READY_BUTTON_TRANSITION_DURATION_MILLIS = 300
 
