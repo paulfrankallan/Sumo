@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
 import sumo.shared.generated.resources.Res
-import sumo.shared.generated.resources.start_gunbai
+import sumo.shared.generated.resources.gunbai_red
 import kotlin.math.roundToInt
 
 @Composable
@@ -102,7 +102,7 @@ private fun BoxScope.WavingGunbai(
     rotationDegrees: Float,
 ) {
     Image(
-        painter = painterResource(Res.drawable.start_gunbai),
+        painter = painterResource(Res.drawable.gunbai_red),
         contentDescription = null,
         modifier = Modifier
             .align(Alignment.TopStart)

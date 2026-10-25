@@ -645,8 +645,13 @@ class GameViewModel(
             }
 
             is GameIntent.GameOver -> {
+                val crouchingWorld = shikiriSenWorld(state.value)
                 _state.update { state ->
                     state.copy(
+                        topRikishiPosition = crouchingWorld?.topRikishi?.position
+                            ?: state.topRikishiPosition,
+                        bottomRikishiPosition = crouchingWorld?.bottomRikishi?.position
+                            ?: state.bottomRikishiPosition,
                         ui = state.ui.copy(
                             topThumbView = state.ui.topThumbView.copy(
                                 foregroundColor = getThumbViewForegroundColor(state, state.topPlayer),
@@ -656,10 +661,15 @@ class GameViewModel(
                                 foregroundColor = getThumbViewForegroundColor(state, state.bottomPlayer),
                                 foregroundImage = getThumbViewForegroundImage(state, state.bottomPlayer),
                             ),
+                            isTopPushing = false,
+                            isBottomPushing = false,
+                            isTopWalking = false,
+                            isBottomWalking = false,
                         )
                     )
                 }
                 deactivateGame(playFinalGameOverSound = intent.result != null)
+                crouchingWorld?.let(gameLoop::reset)
             }
 
             GameIntent.StopGame -> {
@@ -715,6 +725,7 @@ class GameViewModel(
 
     private fun getThumbViewForegroundImage(state: GameState, player: Player): DrawableResource {
         return if(state.isGameOver) {
+            // Show winner/loser image based on health
             if (player.health == 0) {
                 Res.drawable.loser
             } else {
